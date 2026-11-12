@@ -9,7 +9,7 @@ def main(): Bool = {
       val two = state.lookup();
       state.update(3); state.update(40 + two)
     } with state: ((s: Int) =>[R] {r: Int | r == 0 || r == 42}) {
-      def lookup(u: Unit): {i: Int | i == 2} /
+      def lookup(): {i: Int | i == 2} /
         (((s: Int) =>[R] {r: Int | r == 0 || r == 42}) =>
          ((s: {i: Int | i == 2}) =>[R] {r: Int | r == 0 || r == 42})) = {
         fun (s: {i: Int | i == 2}) at [R]: {r: Int | r == 0 || r == 42} {
@@ -23,7 +23,7 @@ def main(): Bool = {
           val next = resume(); next(value)
         }
       }
-      def abort(u: Unit): {i: Int | false} /
+      def abort(): {i: Int | false} /
         (((s: {i: Int | i == 2}) =>[R] {r: Int | r == 0 || r == 42}) =>
          ((s: {i: Int | i == 2}) =>[R] {r: Int | r == 0 || r == 42})) = {
         fun (s: {i: Int | i == 2}) at [R]: {r: Int | r == 0 || r == 42} { 0 }

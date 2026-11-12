@@ -10,7 +10,7 @@ def main(): Bool = {
         middle.tick();
         saved.ask()
       } with h: Int / (Int => Int / (Int => Bool)) {
-        def tick(u: Unit): Unit /
+        def tick(): Unit /
           (Int / (Int => Int / (Int => Bool)) =>
            Int / (Int => Int / (Int => Bool))) = {
           val n = resume();
@@ -19,7 +19,7 @@ def main(): Bool = {
         return x => { x }
       }
     } with h: Int / (Int => Bool) {
-      def tick(u: Unit): Unit /
+      def tick(): Unit /
         (Int / (Int => Bool) => Int / (Int => Bool)) = {
         val n = resume();
         n + 100
@@ -27,7 +27,7 @@ def main(): Bool = {
       return x => { x }
     }
   } with h: Bool {
-    def ask(u: Unit): Int / (Int => Bool) = {
+    def ask(): Int / (Int => Bool) = {
       val n = resume(42);
       n == 152
     }

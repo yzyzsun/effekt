@@ -16,14 +16,14 @@ def main(): Int = {
   };
   try {
     val local = pair(h)[type Int][type Bool][type Int];
-    val withFirst = local(fun (u: Unit) at [h]: Int / (Bool => Int) { h.first() });
-    withFirst(fun (u: Unit) at [h]: Int / (Int => Bool) { h.second() })
+    val withFirst = local(fun () at [h]: Int / (Bool => Int) { h.first() });
+    withFirst(fun () at [h]: Int / (Int => Bool) { h.second() })
   } with h: Int {
-    def first(x: Unit): Int / (Bool => Int) = {
+    def first(): Int / (Bool => Int) = {
       val b = resume(20);
       if (b) { 100 } else { 200 }
     }
-    def second(x: Unit): Int / (Int => Bool) = {
+    def second(): Int / (Int => Bool) = {
       val n = resume(22);
       zero(n)
     }

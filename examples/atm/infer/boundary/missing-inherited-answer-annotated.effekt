@@ -1,0 +1,10 @@
+// ANNOTATED: the result annotation supplies the inherited answer type.
+def main(): Bool = {
+  try {
+    def helper() at [h]: Int / (Int => Bool) = { h.ask() }
+    helper()
+  } with h: Bool {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

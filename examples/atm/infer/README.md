@@ -1,4 +1,81 @@
-# Nested-handler inference examples
+# Evidence and ATC inference examples
+
+Two sets of examples live here.
+
+- **[boundary/](boundary)** shows where inference stops: one small program per
+  case, and for every rejected program the smallest annotated version that is
+  accepted. Start here.
+- **The six files in this directory** are the nested-handler suite used for the
+  paper's inference table. They are described [further down](#nested-handler-suite).
+
+Throughout, "evidence" is the subregion evidence passed to an operation or a
+function call, and "ATC" is the answer-type context of an operation. Answer
+types of handlers and operations are annotations in every example unless a row
+says otherwise.
+
+## What is inferred and what is not
+
+### Inferred
+
+| Situation | Example | What you write |
+| --- | --- | --- |
+| An operation performed directly in a handler body, on any enclosing handler | [active-three-counts](active-three-counts.effekt) | Nothing. Evidence composes the handler edges; the ATC peels one answer layer per handler crossed (distances 0, 1, 2 here) |
+| A call to an ordinary function from any region below it | [nested-residuals](nested-residuals.effekt), [evidence-functions](../evidence-functions.effekt) | Nothing. The call evidence is deferred inside the caller and discharged at its own call sites; a function's region is the lowest one its body needs |
+| An operation performed in a helper declared at the handler's region, including a recursive one | [exact-region-helper](boundary/exact-region-helper.effekt) | The region, `at [h]`. Evidence and ATC follow at distance 0 |
+| The evidence of an operation whose ATC is written | [function-outer-operation-annotated](boundary/function-outer-operation-annotated.effekt) | The ATC only, as in `h.ask[K]()` |
+
+### Inferred in default mode only
+
+Default mode proposes these annotations and then checks them. Strict mode
+(`--check-strict`) follows the printed algorithm, which has no such step, and
+rejects both programs.
+
+| Situation | Example | Limit |
+| --- | --- | --- |
+| The answer type of a handler with no expected type | [handler-answer-preserved](boundary/handler-answer-preserved.effekt) | Only when the handler does not change the answer type |
+| The answer types of an operation clause | [clause-answer-preserved](boundary/clause-answer-preserved.effekt) | Only when the clause keeps the handler's answer type |
+
+### Not inferred
+
+Each program on the left is rejected with the diagnostic shown. The program on
+the right differs only by the annotation named in the last column, and is
+accepted in strict mode as well.
+
+| What is missing | Rejected | Diagnostic | Accepted | What you write |
+| --- | --- | --- | --- | --- |
+| ATC of an operation inside an ordinary function | [function-outer-operation](boundary/function-outer-operation.effekt) | `ATC inference requires a concrete evidence distance` | [function-outer-operation-annotated](boundary/function-outer-operation-annotated.effekt) | An ATC parameter `[K: ATC(dist(path(h)))]`, used as `h.ask[K]()` |
+| ATC argument at a call of such a function | [call-context-argument](boundary/call-context-argument.effekt) | `Function expects 1 explicit ATC arguments` | same as above | The ATC at each call, e.g. `helper[Int / (Int => [])]()` |
+| ATC of an operation inside a recursive helper | [recursive-helper](boundary/recursive-helper.effekt) | `ATC inference requires a concrete evidence distance` | [recursive-helper-annotated](boundary/recursive-helper-annotated.effekt) | The region, `at [h]` |
+| ATC of an operation on a capability parameter | [capability-parameter](boundary/capability-parameter.effekt) | `ATC inference requires a concrete evidence distance` | [capability-parameter-annotated](boundary/capability-parameter-annotated.effekt) | The region, `at [c]` |
+| ATC of an operation where no answer type is inherited | [missing-inherited-answer](boundary/missing-inherited-answer.effekt) | `needs an inherited final answer type` | [missing-inherited-answer-annotated](boundary/missing-inherited-answer-annotated.effekt) | The function's result type |
+| Evidence that must pass through a function body | [region-annotation-in-function](boundary/region-annotation-in-function.effekt) | `required region … cannot discharge` | [region-annotation-in-function-annotated](boundary/region-annotation-in-function-annotated.effekt) | Less: drop the region annotation so the function gets its minimum region |
+| A common type for branches returning functions at different regions | [branch-function-regions](boundary/branch-function-regions.effekt) | `Guarded join is undefined` | [branch-function-regions-annotated](boundary/branch-function-regions-annotated.effekt) | An eta-expansion of one function at the other's region |
+| Answer type of a handler that changes the answer | [handler-answer](boundary/handler-answer.effekt) | `operation requires answer Bool / pure, found Int / pure` | [handler-answer-annotated](boundary/handler-answer-annotated.effekt) | The handler's answer type, `h: Bool` |
+| Answer types of a clause that changes the answer | [clause-answer](boundary/clause-answer.effekt) | `Expected Bool, found Int` | [clause-answer-annotated](boundary/clause-answer-annotated.effekt) | The clause's answer types, `Int / (Int => Bool)` |
+
+The first four rows are one limitation seen from different sides. An ordinary
+function may be called from any region below its own, so its body is checked at
+a fresh region whose distance to an enclosing handler is not a number. The ATC
+is defined only for a concrete distance. The two ways out are to state the
+function's region (`at [h]`), which makes the distance 0, or to abstract over
+the ATC and supply it at each call.
+
+Two further programs of this kind predate this directory:
+[callback-under-handler](../callback-under-handler.effekt) and
+[multiple-capabilities](../multiple-capabilities.effekt), with its annotated
+form in [annotations/](../annotations/multiple-capabilities.effekt).
+
+`AtmInferBoundaryTests` checks every row: the rejected program fails with the
+diagnostic above in both modes, and the accepted one checks in strict mode and
+runs to the same value in the reference interpreter and both Chez modes.
+
+```sh
+sbt -batch 'effektJVM/testOnly effekt.AtmInferBoundaryTests'
+sbt 'effektJVM/runMain effekt.atm.Main --check examples/atm/infer/boundary/recursive-helper.effekt'
+sbt 'effektJVM/runMain effekt.atm.Main --check-strict examples/atm/infer/boundary/handler-answer-preserved.effekt'
+```
+
+## Nested-handler suite
 
 This suite contains five successful programs and one inference limitation. All
 use annotated answer types and omit explicit evidence and ATC arguments. The five

@@ -8,7 +8,7 @@ def main(): Bool = {
         inner.tick();
         outer.ask()
       } with innermost: Int / (Int => Int / (Int => Bool)) {
-        def tick(u: Unit): Unit /
+        def tick(): Unit /
           (Int / (Int => Int / (Int => Bool)) =>
            Int / (Int => Int / (Int => Bool))) = {
           val n = resume();
@@ -17,7 +17,7 @@ def main(): Bool = {
         return x => { x }
       }
     } with inner: Int / (Int => Bool) {
-      def tick(u: Unit): Unit /
+      def tick(): Unit /
         (Int / (Int => Bool) => Int / (Int => Bool)) = {
         val n = resume();
         n + 100
@@ -25,7 +25,7 @@ def main(): Bool = {
       return x => { x }
     }
   } with outer: Bool {
-    def ask(u: Unit): Int / (Int => Bool) = {
+    def ask(): Int / (Int => Bool) = {
       val left = resume(42);
       val right = resume(0);
       left == 152 && right == 110

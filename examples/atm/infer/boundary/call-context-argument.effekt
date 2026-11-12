@@ -1,0 +1,20 @@
+// NOT INFERRED: the ATC argument at a call of an ATC-abstracting function.
+// The checker knows the call evidence and the inherited answer type here, but
+// it does not compute K from them; the call must write it.
+// Repair: function-outer-operation-annotated.effekt.
+def main(): Bool = {
+  try {
+    val helper = fun ()[K: ATC(dist(path(h)))]: Int / (K[Int] => K[Bool]) {
+      h.ask[K]()
+    };
+    try {
+      helper()
+    } with inner: Int / (Int => Bool) {
+      def unused(): Unit / (Int / (Int => Bool) => Int / (Int => Bool)) = { resume() }
+      return x => { x }
+    }
+  } with h: Bool {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

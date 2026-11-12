@@ -4,7 +4,7 @@ def main(): Bool = {
     try {
       ()
     } with inner: Int / (Int => Bool) {
-      def tick(arg: Unit): Unit / (Int / (Int => Bool) => Int / (Int => Bool)) = {
+      def tick(): Unit / (Int / (Int => Bool) => Int / (Int => Bool)) = {
         resume()
       }
       return x => {
@@ -12,7 +12,7 @@ def main(): Bool = {
       }
     }
   } with outer: Bool {
-    def ask(arg: Unit): Int / (Int => Bool) = {
+    def ask(): Int / (Int => Bool) = {
       val n = resume(42);
       zero(n)
     }

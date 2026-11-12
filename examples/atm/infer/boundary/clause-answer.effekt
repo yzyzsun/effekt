@@ -1,0 +1,10 @@
+// NOT INFERRED: the answer types of an operation clause that changes the
+// answer. A clause without them defaults to "from the handler's answer to the
+// handler's answer", here Bool to Bool, but this clause resumes at Int.
+// Repair: clause-answer-annotated.effekt.
+def main(): Bool = {
+  try { h.ask() } with h: Bool {
+    def ask(): Int = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

@@ -1,0 +1,8 @@
+// INFERRED (default mode only): the answer types of a clause that keeps the
+// handler's answer. Strict mode requires them to be written.
+def main(): Int = {
+  try { h.ask() } with h: Int {
+    def ask(): Int = { resume(42) }
+    return x => { x }
+  }
+}

@@ -6,8 +6,8 @@ interface File {
   def close(): Unit
 }
 
-def readInt(c: Int): Int = c
-def closeFile(c: Int): Unit = ()
+def readInt(c: Int) = c
+def closeFile(c: Int) = ()
 
 def main() = {
   val c = 7

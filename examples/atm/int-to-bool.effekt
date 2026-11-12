@@ -3,7 +3,7 @@ def main(): Bool = {
   try {
     h.ask()
   } with h: Bool {
-    def ask(arg: Unit): Int / (Int => Bool) = {
+    def ask(): Int / (Int => Bool) = {
       val n = resume(42);
       zero(n)
     }

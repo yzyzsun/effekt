@@ -15,7 +15,7 @@ def main(): Int = {
       }
       counter(0)
     } with state: StateAnswer {
-      def lookup(u: Unit): {i: Int | i >= 0} /
+      def lookup(): {i: Int | i >= 0} /
         (StateAnswer =>
          StateAnswer) = {
         fun (s: {n: Int | n >= 0}) at [R]: {r: Int | r >= 0} {

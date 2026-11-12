@@ -41,26 +41,26 @@ def main(): Bool = {
       }
     }
   }
-  def child(u: Unit) at [top]: Thread = {
+  def child() at [top]: Thread = {
     try {
       runtime.increment(); runtime.yield(); runtime.increment(); runtime.yield()
     } with runtime: Thread {
-      def increment(u: Unit): Unit / (Thread => Thread) = {
-        Increment(fun (u: Unit) at [top]: Thread { resume() })
+      def increment(): Unit / (Thread => Thread) = {
+        Increment(fun () at [top]: Thread { resume() })
       }
-      def yield(u: Unit): Unit / (Thread => Thread) = {
-        Yielded(fun (u: Unit) at [top]: Thread { resume() })
+      def yield(): Unit / (Thread => Thread) = {
+        Yielded(fun () at [top]: Thread { resume() })
       }
       return u => { Done() }
     }
   }
   def test(init: Int) at [top]: {r: Int | r == init} = {
     val parent = try {
-      runtime.spawn(fun (u: Unit) at [TaskRegion]: Thread { child() });
-      runtime.spawn(fun (u: Unit) at [TaskRegion]: Thread { child() })
+      runtime.spawn(fun () at [TaskRegion]: Thread { child() });
+      runtime.spawn(fun () at [TaskRegion]: Thread { child() })
     } with runtime: Thread {
       def spawn(thread: ((Unit) =>[top] Thread)): Unit / (Thread => Thread) = {
-        Spawned(thread,fun (u: Unit) at [top]: Thread { resume() })
+        Spawned(thread,fun () at [top]: Thread { resume() })
       }
       return u => { Done() }
     };

@@ -1,0 +1,15 @@
+// NOT INFERRED: the ATC of an operation performed inside an ordinary function.
+// An ordinary function can be called from any region below its own, so its
+// body is checked at a fresh region. The evidence from that region to h is a
+// residual with a symbolic distance, and the ATC cannot be computed from a
+// symbolic distance.
+// Repair: function-outer-operation-annotated.effekt, or exact-region-helper.effekt.
+def main(): Bool = {
+  try {
+    def helper(): Int / (Int => Bool) = { h.ask() }
+    helper()
+  } with h: Bool {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

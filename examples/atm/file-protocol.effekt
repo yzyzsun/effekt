@@ -6,10 +6,10 @@ def main(): Open = {
     val done = file.close();
     byte
   } with file: Open {
-    def read(arg: Unit): Int / (Open => Open) = {
+    def read(): Int / (Open => Open) = {
       resume(7)
     }
-    def close(arg: Unit): Unit / (Closed => Open) = {
+    def close(): Unit / (Closed => Open) = {
       val done = resume();
       token(Open)
     }

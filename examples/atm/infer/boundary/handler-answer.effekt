@@ -1,0 +1,12 @@
+// NOT INFERRED: the answer type of a handler that changes the answer. A
+// handler in a `val` binding has no expected type. The checker proposes the
+// type of the return clause, here Int, which is wrong: `ask` turns Int into
+// Bool.
+// Repair: handler-answer-annotated.effekt.
+def main(): Bool = {
+  val r = try { h.ask() } with h {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  };
+  r
+}

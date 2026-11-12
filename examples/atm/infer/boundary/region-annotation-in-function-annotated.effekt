@@ -1,0 +1,16 @@
+// ANNOTATED (by removing an annotation): without a stated region, g gets the
+// minimum region its body needs, here top. Its call evidence is then deferred
+// through f's own call evidence.
+def main(): Int = {
+  def outer() = { () }
+  def f() = {
+    try {
+      val g = fun () { outer() };
+      g(); 42
+    } with h: Int {
+      def unused(): Unit / (Int => Int) = { resume() }
+      return x => { x }
+    }
+  }
+  f()
+}

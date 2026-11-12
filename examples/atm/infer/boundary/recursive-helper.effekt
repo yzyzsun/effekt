@@ -1,0 +1,14 @@
+// NOT INFERRED: the same limitation for a recursive helper. A loop that
+// performs the handler's operation is the common shape of the ARM ports.
+// Repair: recursive-helper-annotated.effekt.
+def main(): Bool = {
+  try {
+    def rec loop(n: Int): Int / (Int => Bool) = {
+      if (n == 0) { h.ask() } else { loop(n - 1) }
+    }
+    loop(3)
+  } with h: Bool {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

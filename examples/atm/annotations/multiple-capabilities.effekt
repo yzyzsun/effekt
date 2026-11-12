@@ -4,7 +4,7 @@ def main(): Bool = {
   val both = fun (c: { def ask(): Int / (Int => Bool); }) {
     fun (d: { def bump(): Int / (Int / (Int => Bool) => Int / (Int => Bool)); }) {
       fun [E: Ev(d, 1, c)] {
-        fun (u: Unit) at [d]: Int / (Int / (Int => Int) => Int / (Int => Bool)) {
+        fun () at [d]: Int / (Int / (Int => Int) => Int / (Int => Bool)) {
           val a = d.bump[refl; []]();
           val b = c.ask[E; Int / (Int => [])]();
           (a + b)
@@ -17,13 +17,13 @@ def main(): Bool = {
       val local = both(outer)(inner)[step(inner)];
       local()
     } with inner: Int / (Int => Bool) {
-      def bump(x: Unit): Int / (Int / (Int => Bool) => Int / (Int => Bool)) = {
+      def bump(): Int / (Int / (Int => Bool) => Int / (Int => Bool)) = {
         resume(20)
       }
       return x => { x }
     }
   } with outer: Bool {
-    def ask(x: Unit): Int / (Int => Bool) = {
+    def ask(): Int / (Int => Bool) = {
       val n = resume(22);
       zero(n)
     }

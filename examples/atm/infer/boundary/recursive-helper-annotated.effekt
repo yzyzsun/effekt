@@ -1,0 +1,13 @@
+// ANNOTATED: `at [h]` fixes the loop to the handler's region. No evidence or
+// ATC is written; both are inferred at distance 0.
+def main(): Bool = {
+  try {
+    def rec loop(n: Int) at [h]: Int / (Int => Bool) = {
+      if (n == 0) { h.ask() } else { loop(n - 1) }
+    }
+    loop(3)
+  } with h: Bool {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

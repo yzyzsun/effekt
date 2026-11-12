@@ -1,0 +1,20 @@
+// ANNOTATED: the function abstracts over the ATC, K, whose depth is the
+// distance from its caller to h. The operation names K; its evidence is still
+// inferred. Each call must supply K: here the caller sits under one more
+// handler, so K is one answer layer, `Int / (Int => [])`.
+def main(): Bool = {
+  try {
+    val helper = fun ()[K: ATC(dist(path(h)))]: Int / (K[Int] => K[Bool]) {
+      h.ask[K]()
+    };
+    try {
+      helper[Int / (Int => [])]()
+    } with inner: Int / (Int => Bool) {
+      def unused(): Unit / (Int / (Int => Bool) => Int / (Int => Bool)) = { resume() }
+      return x => { x }
+    }
+  } with h: Bool {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

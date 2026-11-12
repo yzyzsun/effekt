@@ -4,7 +4,7 @@ def main(): Int = {
   val saved = try {
     h.suspend()
   } with h: ((Int) =>[top] Int) {
-    def suspend(arg: Unit): Int / (Int => ((Int) =>[top] Int)) = {
+    def suspend(): Int / (Int => ((Int) =>[top] Int)) = {
       resume
     }
     return x => {

@@ -8,8 +8,8 @@ interface File {
 }
 
 def main(): Int = {
-  def readInt(c: Int): Int = { c }
-  def closeFile(c: Int): Unit = { () }
+  def readInt(c: Int) = { c }
+  def closeFile(c: Int) = { () }
   val file = fun [R] {
     fun (c: Int) {
       fun (body: (f: File) => ((Unit)[K: ATC(dist(path(f)))] => R / (K[R] => K[R]) at {f})) {
@@ -31,7 +31,7 @@ def main(): Int = {
   };
   val readNumber = file[Int](42);
   val n = readNumber(fun (f: File) {
-    fun (u: Unit)[K: ATC(dist(path(f)))]: Int / (K[Int] => K[Int]) {
+    fun ()[K: ATC(dist(path(f)))]: Int / (K[Int] => K[Int]) {
       val x = f.read[path(f); K]();
       f.close[path(f); K]();
       x
@@ -39,7 +39,7 @@ def main(): Int = {
   });
   val checkNumber = file[Bool](35);
   val ok = checkNumber(fun (f: File) {
-    fun (u: Unit)[K: ATC(dist(path(f)))]: Bool / (K[Bool] => K[Bool]) {
+    fun ()[K: ATC(dist(path(f)))]: Bool / (K[Bool] => K[Bool]) {
       val x = f.read[path(f); K]();
       f.close[path(f); K]();
       x == 35

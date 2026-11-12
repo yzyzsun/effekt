@@ -40,7 +40,7 @@
       "port": "examples/atm/arm/amb-1-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "a58216409f50aa12a22a739dbfadd796385dd5fca05d4c97bec0fea3da3c3c9b",
+      "port_sha256": "7e5ffa26d4024f56d2bb5468708302a5317168b51b7c1b067a2ae16918b4f245",
       "port_adaptations": "Select receives head/tail annotation context; original first-success search and resumptions retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -60,7 +60,7 @@
       "port": "examples/atm/arm/amb-1-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "21724041cf8e2f66ddfadbadb09e62c4eba22e660835ec810f45e656c3a7d8a2",
+      "port_sha256": "e83382ea4992dba5bc8d9cdb612a896e6893e31b4494a9ed508563b813003a13",
       "port_adaptations": "Select receives head/tail annotation context; original first-success search and resumptions retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -80,7 +80,7 @@
       "port": "examples/atm/arm/amb-2-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "8357f85df7225c96d373acdc1609eb283183e76cba1a89da31394b25adaff402",
+      "port_sha256": "5d9835cc67c49b803ed67d08241925007dd26b9bd500266ba36d8318f21d5d71",
       "port_adaptations": "Select receives head/tail annotation context; original first-success search and resumptions retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -100,7 +100,7 @@
       "port": "examples/atm/arm/amb-2-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "7607dfa52ff8803e96d13a4dc53a6414aedc3511515749a6835bac6c6df1b2ea",
+      "port_sha256": "8bfdbcf166bf896292a4cfd91498ff628eec3f9661275e6cdcfc160b5ec12b22",
       "port_adaptations": "Select receives head/tail annotation context; original first-success search and resumptions retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -120,7 +120,7 @@
       "port": "examples/atm/arm/amb-3-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "0dcf07145b7b4365a0ad66923b45496e9f8353e65dc5cfc161fed2ce1221b57a",
+      "port_sha256": "63a25394ea2584776241bb61c498822fb68d01665409d8a65b5925e6332d2ea9",
       "port_adaptations": "Select receives head/tail annotation context; original first-success search and resumptions retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -157,7 +157,7 @@
       "port": "examples/atm/arm/amb-3-simpl-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "61d1222fc074f26d0d05a74aea6d18fa731c0e5ee61f1b9674c2aad58f0718bf",
+      "port_sha256": "f6ddb5125db18bdb3783768a14a39c5820b35e55bfa2f1a9a4ec6ec147411a57",
       "port_adaptations": "Select receives head/tail annotation context; original first-success search and resumptions retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -177,7 +177,7 @@
       "port": "examples/atm/arm/bfs-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "2cfa0198fcd8b227ab4b70b4db67fc9b19dade87171eaf66547b5eaf3fd13b39",
+      "port_sha256": "1ac107616a4e1abc40e5f10a9371edf540d52ce5a9ffd2801247f8096655f5e7",
       "port_adaptations": "Specialized to the single Select in each benchmark. The private queue is threaded explicitly; Failure dispatch moves from the return clause to runNext after invoking the dequeued continuation. Actual continuations, true/false jobs, and FIFO order are retained. Select receives its expected branch results as annotation context.",
       "port_fidelity_class": "substantial_adaptation"
     },
@@ -197,7 +197,7 @@
       "port": "examples/atm/arm/bfs-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "0457ae4de663be857de204212d1665fe3b528f0f1c301a5d0883b1201d699d03",
+      "port_sha256": "e0c3c34ad565998aea535c8b64a28ed43257748b7a5ea50bd1cee42bfa6991c5",
       "port_adaptations": "Specialized to the single Select in each benchmark. The private queue is threaded explicitly; Failure dispatch moves from the return clause to runNext after invoking the dequeued continuation. Actual continuations, true/false jobs, and FIFO order are retained. Select receives its expected branch results as annotation context.",
       "port_fidelity_class": "substantial_adaptation"
     },
@@ -217,7 +217,7 @@
       "port": "examples/atm/arm/bfs-simpl-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "b09a1ed9fdaa1ae289ff9c35d71910d0daec937010a3ef52fb8d6a3480049605",
+      "port_sha256": "57ec4a1c3d339c6178cdaa4b28b465a315cb857fb5333af9e887d341c980ddf7",
       "port_adaptations": "Specialized to the single Select in each benchmark. The private queue is threaded explicitly; Failure dispatch moves from the return clause to runNext after invoking the dequeued continuation. Actual continuations, true/false jobs, and FIFO order are retained. Select receives its expected branch results as annotation context.",
       "port_fidelity_class": "substantial_adaptation"
     },
@@ -372,7 +372,7 @@
       "port": "examples/atm/arm/deferred-1-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "fc65d3c2b142f75e92730426a3745e82350a3aeb62af0b15fe1ba18863bbb2a7",
+      "port_sha256": "75c15f04cdf3587d06e978e06930deec8fcd0b38d27d64bb9a826a0cbddff5ee",
       "port_adaptations": "Dependent function-valued constructor fields; stored thunk, lazy forcing, and memoized Value branch retained. Helpers use exact top-region arrows.",
       "port_fidelity_class": "structurally_close"
     },
@@ -392,7 +392,7 @@
       "port": "examples/atm/arm/deferred-1-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "d308943ae1b3aa2c18245c6d358ec2597501ae9e602fe194a85e589d5b77d5af",
+      "port_sha256": "c82950fe5b8dfa21c7a7d7de148bc6578ed8ce94c106c8052d91537c6e4da6e9",
       "port_adaptations": "Dependent function-valued constructor fields; stored thunk, lazy forcing, and memoized Value branch retained. Helpers use exact top-region arrows.",
       "port_fidelity_class": "structurally_close"
     },
@@ -412,7 +412,7 @@
       "port": "examples/atm/arm/deferred-2-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "9fbaea0b5102fbc419c504dd88eb0e22ca39e03f33a270dcafdec1bfa36b1285",
+      "port_sha256": "8bd00b19f7054d64d90b08e177a7eb1f78babd3c1cdf1fdfb46fd87c122fb448",
       "port_adaptations": "Dependent function-valued constructor fields; stored thunk, lazy forcing, and memoized Value branch retained. Helpers use exact top-region arrows.",
       "port_fidelity_class": "structurally_close"
     },
@@ -530,7 +530,7 @@
       "port": "examples/atm/arm/io-read-1-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "5147688c5c07f31bbebcf7a24ce88e60f0c608ca81c07d1992a8bfc122242dca",
+      "port_sha256": "f05e672eaebc79273002a00e3f2e410996a407c1cfa4d54f8a108b42d49c43e5",
       "port_adaptations": "Read receives the remaining read count as annotation context. State-passing input consumption and empty-input abort are retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -550,7 +550,7 @@
       "port": "examples/atm/arm/io-read-1-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "027c32e72244507a69d310e9abed33f05c4149d2666ae5007a40d4c82f8b6555",
+      "port_sha256": "02ee6b11f4d8bfc542d5e397444510f5c75d78ed6fd0a1ba9bbb741ff99007ab",
       "port_adaptations": "Read receives the remaining read count as annotation context. State-passing input consumption and empty-input abort are retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -570,7 +570,7 @@
       "port": "examples/atm/arm/io-read-2-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "aaff26d39cc19eaca1a197e0c0373d42c706ee09d9cdf9dcd62bd644bef534c0",
+      "port_sha256": "4ef699e3bf4f54517619602970acdd4f40c27c81240dd531b7946a5b5727e121",
       "port_adaptations": "Read receives the remaining read count as annotation context. State-passing input consumption and empty-input abort are retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -607,7 +607,7 @@
       "port": "examples/atm/arm/io-read-3-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "0eda9f5fd04be5539145cd1ed166807638066bfd5443dc94c0e95d287281a1d0",
+      "port_sha256": "42fa48a342160ce8a45fa3fe2781fac73e7f5082572641777731c35fb5a7cb36",
       "port_adaptations": "Read receives the remaining read count as annotation context. State-passing input consumption and empty-input abort are retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -644,7 +644,7 @@
       "port": "examples/atm/arm/io-write-1-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "161e44c53623d80aec883c9671eaf6fd805fbfac5ff694686e0a2b61e3f7af65",
+      "port_sha256": "a5708447890cfd442523bd1d3ed495c0d27a97e68c912076e7e7c0b73bdff47f",
       "port_adaptations": "Write receives the remaining input tail as annotation context. All writes and the output accumulator are retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -664,7 +664,7 @@
       "port": "examples/atm/arm/io-write-1-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "47f8f073ced2448401274558967bf7e263868f2f08382cffb9f64f77a291038e",
+      "port_sha256": "b395b26c679b40edae5649eeb54fde726ff5276b358b48becab46a322082a97d",
       "port_adaptations": "Write receives the remaining input tail as annotation context. All writes and the output accumulator are retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -684,7 +684,7 @@
       "port": "examples/atm/arm/io-write-2-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "c2de2d37a43075497320b6e0539e376a02e8d351efbc72ff2b0f22ca8581f390",
+      "port_sha256": "0f9212cc09417680e953e9e37daed8db51498fd1afbd867df9a526f32c4311da",
       "port_adaptations": "Write receives the remaining input tail as annotation context. All writes and the output accumulator are retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -704,7 +704,7 @@
       "port": "examples/atm/arm/io-write-2-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "2ec4c5a79078d2dd14b2114f0d36b3d538055591d267b0a0a4cade07fda32fdb",
+      "port_sha256": "90205199b2989526c503d43c647eae13827b350acf1cfc0adc0bb1818df107d2",
       "port_adaptations": "Write receives the remaining input tail as annotation context. All writes and the output accumulator are retained.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -724,7 +724,7 @@
       "port": "examples/atm/arm/modulus-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "0a6b39c875b8deb9724da666338f20a0a8251da13f68acf998e32b8c386f4e2b",
+      "port_sha256": "56454e835069e06c174dfa8e21229f5187ea6720a9a41d041c49ee491aa304de",
       "port_adaptations": "mu is specialized to the actual f (zero times sequence(10)); both effect-mediated callbacks and maximum-index tracking remain. The general higher-order helper API is not ported.",
       "port_fidelity_class": "substantial_adaptation"
     },
@@ -744,7 +744,7 @@
       "port": "examples/atm/arm/modulus-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "1519e7ed2f2ce5d3477b072b6f74a6201229ba7e50b20b3b74c8dac0166d935d",
+      "port_sha256": "e686febb871b840713324e0b5889a715bc6084a3845623649f2364d22017d8c7",
       "port_adaptations": "mu is specialized to the actual f (zero times sequence(10)); both effect-mediated callbacks and maximum-index tracking remain. The general higher-order helper API is not ported.",
       "port_fidelity_class": "substantial_adaptation"
     },
@@ -764,7 +764,7 @@
       "port": "examples/atm/arm/queue-1-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "2fdf2094354ce196ec7ea0d6fe0adfcca87ac3f4a39959d6235a40de8cc816d3",
+      "port_sha256": "ac3b5ca30691b0c102d08feec424cba8cb5cb8420ec9f57d097bc9bc757a01ff",
       "port_adaptations": "Monomorphic FIFO lists with append; original operation context, two dequeues, and state-passing queue retained.",
       "port_fidelity_class": "structurally_close"
     },
@@ -784,7 +784,7 @@
       "port": "examples/atm/arm/queue-1-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "5c3b7b6e1e70e85f85afcf96abe9548d3761bf01a91246d4bca40c1fa45e9a8b",
+      "port_sha256": "feabfd367055de9452f6c14933968df8eb511401a1edb02901e92ad8dca78ba4",
       "port_adaptations": "Monomorphic FIFO lists with append; original operation context, two dequeues, and state-passing queue retained.",
       "port_fidelity_class": "structurally_close"
     },
@@ -804,7 +804,7 @@
       "port": "examples/atm/arm/queue-2-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "ac9ea2eadad19bf1dc9ddd1eaab0229aedc45e745757a943bac49d3f842f541f",
+      "port_sha256": "9060a3e7e438176a2dfaad87e494891e987a5242018a2c8c9f260bcf3380feb1",
       "port_adaptations": "Monomorphic FIFO lists with append; original operation context, two dequeues, and state-passing queue retained.",
       "port_fidelity_class": "structurally_close"
     },
@@ -841,7 +841,7 @@
       "port": "examples/atm/arm/round-robin-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "7df07018c52b02fec76d9b3368b2a5e793b61b7708b1143b4e9b27800e9155b5",
+      "port_sha256": "9448f1d1a392430b2b5bea8954bd521e1fcb5efd669aadc38a92d9a0591ba71f",
       "port_adaptations": "Private queue and counter references become explicit scheduler state. Increment/Yield/Spawn are reified; child handlers are constructed separately. Actual continuation closures are enqueued and scheduled in FIFO order. This is a scheduler representation change, not native reference support.",
       "port_fidelity_class": "substantial_adaptation"
     },
@@ -861,7 +861,7 @@
       "port": "examples/atm/arm/round-robin-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "4fc9d9a369d72d6e19b7e2f07b03f12362927bcb701a23ef07d9b00799cae548",
+      "port_sha256": "f72a4b6f4535f5de2acaaa7402fc5b702f7fc0a18dcc30826af1606bf121e87d",
       "port_adaptations": "Private queue and counter references become explicit scheduler state. Increment/Yield/Spawn are reified; child handlers are constructed separately. Actual continuation closures are enqueued and scheduled in FIFO order. This is a scheduler representation change, not native reference support.",
       "port_fidelity_class": "substantial_adaptation"
     },
@@ -963,7 +963,7 @@
       "port": "examples/atm/arm/select-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "41bb058cc1db4d94f56009cf9408a23299aedd8240bab66b82d7c07a380fba3d",
+      "port_sha256": "56a2e730802e02ea4014a00692e469697a9ac67f78016a19bbafbfc1db5e10b0",
       "port_adaptations": "Monomorphic lists/results and explicit recursive measures; both choices and the original first-success collector remain.",
       "port_fidelity_class": "structurally_close"
     },
@@ -983,7 +983,7 @@
       "port": "examples/atm/arm/select-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "8488c4179acdc59e8d516708b9728799faeb0ec2367eb2981731637faa1cda72",
+      "port_sha256": "03688db9fd94062b1cf6103ee637bd6ead134eefa61f6a1b2ec040d2aef4a64b",
       "port_adaptations": "Monomorphic lists/results and explicit recursive measures; both choices and the original first-success collector remain.",
       "port_fidelity_class": "structurally_close"
     },
@@ -1003,7 +1003,7 @@
       "port": "examples/atm/arm/shift-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "f7f171ab44d0e7e6b1857a8e9fb103530846a6f32db11e9144ac741be9616147",
+      "port_sha256": "d469d74fbc6cd13d569d29e029decef42328ae6a1c7af183277372568aa3fb27",
       "port_adaptations": "Benchmark-specific specialization: omit the recursive reset around f because f and the resumed suffix contain no further Shift. Preserve the Shift operation and all three actual continuation calls. General recursive shift/reset is not supported by this port.",
       "port_fidelity_class": "substantial_adaptation"
     },
@@ -1023,7 +1023,7 @@
       "port": "examples/atm/arm/shift-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "21e23883f92acd769bfd3e26ef1fdf8316bf47dff7a8e25570c667786f6b35db",
+      "port_sha256": "3b57fdaa38759561b3c0fff950db8dadb71872bd411957a7397b8e8a57cc05db",
       "port_adaptations": "Benchmark-specific specialization: omit the recursive reset around f because f and the resumed suffix contain no further Shift. Preserve the Shift operation and all three actual continuation calls. General recursive shift/reset is not supported by this port.",
       "port_fidelity_class": "substantial_adaptation"
     },
@@ -1043,7 +1043,7 @@
       "port": "examples/atm/arm/state-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "7334897b89bec19e9527377150fd892ac8a95a2900de5a816e1cd0b99468b704",
+      "port_sha256": "1006990ea7f96dc9131cff99c27deb127d03e22642fa4483be02c255f966c39c",
       "port_adaptations": "Retain original Lookup/Update context and recursive counter; use a local-arrow alias to anchor state-function answers and prove result equals initial state.",
       "port_fidelity_class": "structurally_close"
     },
@@ -1063,7 +1063,7 @@
       "port": "examples/atm/arm/state-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "20f1208215527b5d47978b83b9979b23f71f8ee7bc3aef65eb87f03d57c03346",
+      "port_sha256": "11131071d7d8c1ab7da63639254469a119a5cf9dcf62d427dc5ea856578f3fcd",
       "port_adaptations": "Lookup/Update receive added counter context absent from the upstream UNSAT source. The recursive counter and original false result != init assertion remain; a local-arrow alias anchors state-function answers.",
       "port_fidelity_class": "context_instrumented"
     },
@@ -1083,7 +1083,7 @@
       "port": "examples/atm/arm/state-easy-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "09090776e1acdf063204081880fd9a9b1363da4a978ad8bac43f06f85dccff96",
+      "port_sha256": "e4354b57a8103e3e682f8f2cd73a61e9d72d566bca93e235be35990e63a23487",
       "port_fidelity_class": "structurally_close"
     },
     {
@@ -1119,7 +1119,7 @@
       "port": "examples/atm/arm/transaction-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "ff469c2c3ac52d1a9033b191b6264621a2c65fa854c18ffc00a9b1287f4ee1b8",
+      "port_sha256": "459c8e5d91fcb84d946f6673eb5a2beda4dfdf40c41343a625b7ed9ed86fa3c6",
       "port_adaptations": "The private reference becomes the committed handler result; normal completion returns the final state and MyExn returns the initial zero. Both branches, lookups, and updates remain. This is state passing, not native reference support.",
       "port_fidelity_class": "substantial_adaptation"
     },
@@ -1139,7 +1139,7 @@
       "port": "examples/atm/arm/transaction-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "42d4b6e09a0ab1b3cd1d865dd7196a49e87c50aad1921c22f31f07bc0e2162f4",
+      "port_sha256": "1cd8a2da69d86546a9a089156de866a257cf1dba1e276c5e11857675d1349cae",
       "port_adaptations": "The private reference becomes the committed handler result; normal completion returns the final state and MyExn returns the initial zero. Both branches, lookups, and updates remain. This is state passing, not native reference support.",
       "port_fidelity_class": "substantial_adaptation"
     },
@@ -1159,7 +1159,7 @@
       "port": "examples/atm/arm/yield-SAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "dc26be7fdc232918566fc8f303ecec4a4d8a2a9babcfb3e2f7759432be6db2f2",
+      "port_sha256": "dc9a25207e7ca9efaf47c48af289cb5b7b04caaf013b8668bd85901d056396f8",
       "port_adaptations": "Recursive tree measures and dependent continuation fields. Susp stores and later invokes the actual continuation; depth-first traversal and every leaf increment remain. Helpers use exact top-region arrows.",
       "port_fidelity_class": "structurally_close"
     },
@@ -1179,7 +1179,7 @@
       "port": "examples/atm/arm/yield-UNSAT.effekt",
       "remaining": null,
       "paper_translation_equivalence": "not_audited",
-      "port_sha256": "2e0bd50e8d4fb737f4e3641b97dd9cf504a5f5b6a68af210cb113b4f0c210631",
+      "port_sha256": "9f19f1c20b6062e72aefe591f92430c0155f66296f52876b7040d0f202f1db46",
       "port_adaptations": "Recursive tree measures and dependent continuation fields. Susp stores and later invokes the actual continuation; depth-first traversal and every leaf increment remain. Helpers use exact top-region arrows.",
       "port_fidelity_class": "structurally_close"
     },
@@ -1568,7 +1568,7 @@
       ],
       "remaining": "Audit correspondence to both lexical file capabilities in the paper; current port illustrates lexical dispatch only.",
       "port_sha256": {
-        "examples/atm/nested-outer.effekt": "fce2333e7cbdd019021324ee9e880eb70d1bb03454a2431469200412ab1854ee"
+        "examples/atm/nested-outer.effekt": "f3e318e7176598c228e526504d2b367d9f1547923572ab165f70dc527734d92e"
       }
     },
     {
@@ -1580,7 +1580,7 @@
       ],
       "remaining": "Current program illustrates an answer-type change; not a transcription of the paper example.",
       "port_sha256": {
-        "examples/atm/int-to-bool.effekt": "31ae5c9f247d01cc97e3d9cd43393f650e7226437b965723070053110b5acd52"
+        "examples/atm/int-to-bool.effekt": "23031e8278652e59f61063e14313f4ce065d7dd68ffa2cf02bf6765f268ae8ef"
       }
     },
     {
@@ -1592,7 +1592,7 @@
       ],
       "remaining": "Current regression covers composed evidence and a depth-two ATC; map the exact paper program separately.",
       "port_sha256": {
-        "examples/atm/evidence-two-delimiters.effekt": "5cf2d39f9f10d1b0354632e4eceb9346870cc115d7dd0e001ae6de7b81168340"
+        "examples/atm/evidence-two-delimiters.effekt": "d2cc5e54498e0ccbec5c7910c2c5e718a83dcc5ff6688e4437c40af7bd318555"
       }
     },
     {
@@ -1605,8 +1605,8 @@
       ],
       "remaining": "Existing token protocol omits the full nested state-passing handlers and their operation contracts; fixed-region functions are now supported.",
       "port_sha256": {
-        "examples/atm/file-protocol.effekt": "82affc88c5caffffbe13901cba12bf587c1c054a65dd5b0b2ae917e9da3478fc",
-        "examples/atm/file-protocol-invalid.effekt": "9aa732963ed74060f5cf663d34bb29ede956f66721d6d3e3e3d0cc6a467fafcf"
+        "examples/atm/file-protocol.effekt": "e4a65a3f4b75255952813c79fb7f3fb35c409e91fe5040784e36bf5f8569d21d",
+        "examples/atm/file-protocol-invalid.effekt": "5523c950b7732ea92bfb36023cde0b43f1f94b1389cf9c121d93787ccef40000"
       }
     },
     {

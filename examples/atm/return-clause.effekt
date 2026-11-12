@@ -3,7 +3,7 @@ def main(): Bool = {
   try {
     h.ask()
   } with h: Bool {
-    def ask(arg: Unit): Int / (Bool => Bool) = {
+    def ask(): Int / (Bool => Bool) = {
       resume(0)
     }
     return x => {

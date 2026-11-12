@@ -84,7 +84,7 @@ class AtmInferTests extends munit.FunSuite {
 
   test("a wrong answer at the ATC hole is rejected") {
     val s = source("active-three-counts").replace(
-      "def ask(u: Unit): Int / (Int => Bool)", "def ask(u: Unit): Int / (Int => Int)")
+      "def ask(): Int / (Int => Bool)", "def ask(): Int / (Int => Int)")
     val result = Parser.parse(s).flatMap(Checker.check).swap.toOption.get
     assertEquals(result.kind, DiagnosticKind.TypeError)
     assert(result.message.contains("operation requires answer Int"), result.message)

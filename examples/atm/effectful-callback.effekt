@@ -4,11 +4,11 @@ def main(): Bool = {
     def apply(f: ((Unit) =>[h] Int / (Int => Bool))) at [h]: Int / (Int => Bool) = {
       f()
     }
-    apply(fun (u: Unit) at [h]: Int / (Int => Bool) {
+    apply(fun () at [h]: Int / (Int => Bool) {
       h.ask()
     })
   } with h: Bool {
-    def ask(arg: Unit): Int / (Int => Bool) = {
+    def ask(): Int / (Int => Bool) = {
       val n = resume(42);
       zero(n)
     }

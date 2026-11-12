@@ -1,0 +1,11 @@
+// ANNOTATED: `at [c]` makes the inner function callable at exactly the
+// capability's region. The operation is then at distance 0.
+def main(): Bool = {
+  val invoke = fun (c: { def ask(): Int / (Int => Bool); }) {
+    fun () at [c]: Int / (Int => Bool) { c.ask() }
+  };
+  try { invoke(h)() } with h: Bool {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

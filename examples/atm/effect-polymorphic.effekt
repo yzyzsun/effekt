@@ -9,11 +9,11 @@ def main(): Bool = {
   };
   try {
     val localApply = apply(h);
-    val p = localApply[type Bool][type Bool](fun (u: Unit) at [h]: Int { 0 });
-    val n = localApply[type Int][type Bool](fun (u: Unit) at [h]: Int / (Int => Bool) { h.ask() });
+    val p = localApply[type Bool][type Bool](fun () at [h]: Int { 0 });
+    val n = localApply[type Int][type Bool](fun () at [h]: Int / (Int => Bool) { h.ask() });
     p + n
   } with h: Bool {
-    def ask(x: Unit): Int / (Int => Bool) = {
+    def ask(): Int / (Int => Bool) = {
       val n = resume(42);
       zero(n)
     }

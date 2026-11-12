@@ -1,0 +1,10 @@
+// INFERRED (default mode only): the answer type of a handler that does not
+// change the answer. The proposed type, that of the return clause, is right.
+// Strict mode rejects this: A_Handle is a checking rule.
+def main(): Int = {
+  val r = try { h.ask() } with h {
+    def ask(): Int / (Int => Int) = { resume(42) }
+    return x => { x }
+  };
+  r
+}

@@ -1,0 +1,13 @@
+// NOT INFERRED: an operation where no answer type is inherited. The ATC is
+// computed by peeling layers off the answer type inherited from the context.
+// A function body without a result annotation inherits none.
+// Repair: missing-inherited-answer-annotated.effekt.
+def main(): Bool = {
+  try {
+    def helper() at [h] = { h.ask() }
+    helper()
+  } with h: Bool {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

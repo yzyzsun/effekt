@@ -1,0 +1,15 @@
+// ANNOTATED: f is first eta-expanded at the handler's region. The call of f
+// inside the expansion gets its evidence, from h to top, by inference.
+def main(): Bool = {
+  def f(x: Int) = { x }
+  try {
+    val g: ((Int) => Int) at {h} = fun (x) { x };
+    val f2: ((Int) => Int) at {h} = fun (x) { f(x) };
+    val pick = if (true) { f2 } else { g };
+    val n = pick(1);
+    h.ask()
+  } with h: Bool {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

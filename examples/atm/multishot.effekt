@@ -3,7 +3,7 @@ def main(): Bool = {
   try {
     h.choose()
   } with h: Bool {
-    def choose(arg: Unit): Int / (Int => Bool) = {
+    def choose(): Int / (Int => Bool) = {
       val left = resume(20);
       val right = resume(-20);
       zero((left + right))

@@ -1,0 +1,16 @@
+// NOT INFERRED: a common type for branches that return functions at different
+// regions. f is at the top region and g at the handler's; arrows are related
+// only at equal regions, and the join does not move f down.
+// Repair: branch-function-regions-annotated.effekt.
+def main(): Bool = {
+  def f(x: Int) = { x }
+  try {
+    val g: ((Int) => Int) at {h} = fun (x) { x };
+    val pick = if (true) { f } else { g };
+    val n = pick(1);
+    h.ask()
+  } with h: Bool {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

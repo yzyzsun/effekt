@@ -10,13 +10,14 @@ typechecking times.
 
 | Inventory | Total | Current status |
 | --- | --- | --- |
-| Local `.effekt` examples | 83 | 58 accepted, 21 contract negatives, 1 protocol negative, 3 unsupported |
+| Local `.effekt` examples (2026-11-13) | 109 | 75 accepted, 21 contract negatives, 1 protocol negative, 3 unsupported, 9 inference limits |
 | Nested-handler inference examples | 6 | 5 infer evidence/ATCs and run to `true`; 1 reconstructs residual evidence but has undefined ATC inference |
+| Inference boundary examples | 20 | 9 rejected programs, each naming something that is not inferred, 8 annotated repairs, and 3 programs that are inferred |
 | Pinned coar ARM inputs | 52 OCaml files | All 52 have ports: 31 accepted, 21 contract rejections |
 | Archived submission inventory | 81 rows: 59 ARM + 22 Lexa | 52 mapped upstream ports; 29 archived rows unported |
 
 The 41 previously pending upstream files now have translations. These inventories
-overlap: the 52 ARM ports are part of the 83 examples. Universal input/output
+overlap: the 52 ARM ports are part of the 109 examples. Universal input/output
 contracts are checked; concrete `main` results are separate runtime witnesses.
 Rejected ARM files must fail with `ContractFailure`, not unsupported syntax or
 an unavailable solver. The three unsupported local examples are not counted as
@@ -68,6 +69,11 @@ There is no upstream `state-easy-UNSAT.ml`. A separate regression rejects
 with result exactly 3 is a different, still unported program.
 
 ## Adaptations and limits of the ports
+
+**[ARM-FIDELITY.md](ARM-FIDELITY.md) is the readable audit**: it says, family by
+family, what each port keeps and changes, how the false-contract ports are
+rejected, and what the results do and do not show. This section keeps the
+short form and the numbered markers used in the supplement.
 
 All ports use lexical operations, explicit contracts, monomorphic data, and unary
 functions for curried arguments. Handler helpers are checked at their benchmark
@@ -140,6 +146,19 @@ computation/ATC/evidence/distance kinds and polymorphic operation signatures
 remain incomplete. See [ARM.md](ARM.md) for syntax and [FIDELITY.md](FIDELITY.md)
 for the paper boundary.
 
+## Inference boundary examples
+
+[examples/atm/infer/boundary](../../examples/atm/infer/boundary) has one small
+program for each thing the checker does not infer, paired with the smallest
+annotated version that is accepted, plus three programs that are inferred.
+The table of cases, diagnostics and repairs is in
+[examples/atm/infer/README.md](../../examples/atm/infer/README.md).
+In short: evidence and ATCs are inferred for operations performed directly
+under handlers and in helpers declared at a handler's region; an operation
+inside an ordinary function needs an explicit ATC parameter, supplied again
+at each call. These 20 files are checked by `AtmInferBoundaryTests`; they are
+not part of the paper's inference table.
+
 ## Nested-handler inference examples
 
 These six programs are maintained under [examples/atm/infer](../../examples/atm/infer).
@@ -207,9 +226,10 @@ The seven motivating-example groups are separate from the archived table's 81 ro
 | Nested state refinements | Unported; preserve both handlers and establish result exactly `3` |
 | GUI interactor | Unported; nested file/GUI state handlers and invalid ordering cases remain |
 
-## The other 25 local examples
+## The other 31 local examples
 
-Together with the 52 ARM files and six inference examples above, this lists
+Together with the 52 ARM files, the six nested-handler examples and the 20
+boundary examples above, this lists
 every current `.effekt` file.
 These small examples exercise implementation features and regressions; they are
 not additional migrated paper benchmarks.
@@ -221,12 +241,18 @@ not additional migrated paper benchmarks.
 | [`capability-polymorphic.effekt`](../../examples/atm/capability-polymorphic.effekt) | Accepted: instantiate one capability-polymorphic helper at different handlers |
 | [`composed-effects.effekt`](../../examples/atm/composed-effects.effekt) | Accepted with narrowed annotations: explicit composable answer endpoints |
 | [`effect-polymorphic.effekt`](../../examples/atm/effect-polymorphic.effekt) | Accepted with narrowed annotations: explicit initial/final answer value-type parameters |
+| [`annotations/multiple-capabilities.effekt`](../../examples/atm/annotations/multiple-capabilities.effekt) | Accepted: the unsupported example below with an explicit evidence parameter relating the two capabilities |
+| [`annotations/polymorphic-outer-call.effekt`](../../examples/atm/annotations/polymorphic-outer-call.effekt) | Accepted: `infer/polymorphic-outer-call` with an explicit ATC parameter and evidence |
+| [`effect-parameter.effekt`](../../examples/atm/effect-parameter.effekt) | Accepted: an answer-effect parameter supplied in type brackets |
 | [`effectful-callback.effekt`](../../examples/atm/effectful-callback.effekt) | Accepted: a local callback with an answer-changing contract |
 | [`evidence-functions.effekt`](../../examples/atm/evidence-functions.effekt) | Accepted: defer calls and reroute residual obligations through one call witness |
 | [`evidence-two-delimiters.effekt`](../../examples/atm/evidence-two-delimiters.effekt) | Accepted: composed runtime evidence and a depth-two ATC |
 | [`fidelity/mixed-guard-dependent.effekt`](../../examples/atm/fidelity/mixed-guard-dependent.effekt) | Accepted: dependent returned-value assumptions in mixed pure/impure joins |
 | [`fidelity/operation-checked-lambda.effekt`](../../examples/atm/fidelity/operation-checked-lambda.effekt) | Accepted: check an inline lambda against an operation parameter type |
 | [`fidelity/recursive-extra-capture.effekt`](../../examples/atm/fidelity/recursive-extra-capture.effekt) | Accepted: ordinary recursion under an unused handler without extra capture-set subtyping |
+| [`file-nested.effekt`](../../examples/atm/file-nested.effekt) | Accepted: the paper's Fig. 1 with the helper inlined |
+| [`file-polymorphic.effekt`](../../examples/atm/file-polymorphic.effekt) | Accepted: result-type-polymorphic file helper whose callbacks declare their call ATC |
+| [`file-reusable.effekt`](../../examples/atm/file-reusable.effekt) | Accepted: Fig. 1 with a reusable helper and explicit region, computation and ATC parameters |
 | [`file-protocol-invalid.effekt`](../../examples/atm/file-protocol-invalid.effekt) | **Intentional negative:** read after close requires `Open` but receives `Closed` |
 | [`file-protocol.effekt`](../../examples/atm/file-protocol.effekt) | Accepted: answer-state token protocol; no operating-system file is opened |
 | [`higher-order.effekt`](../../examples/atm/higher-order.effekt) | Accepted: ordinary higher-order function application |
@@ -261,7 +287,7 @@ Java 27, sbt 1.9.7, Z3 5.1.0 and Chez 10.4.1. `EFFEKT_ATM_Z3` and
 `EFFEKT_ATM_CHEZ` select nondefault executables. Release/CI packaging is unfinished.
 
 ```sh
-# Check all 83 local examples against their separate expected categories.
+# Check all 109 local examples against their separate expected categories.
 python3 docs/atm/check_examples.py
 
 # Check available paper ports and retain all unported rows in the JSON report.

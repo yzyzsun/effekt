@@ -1,0 +1,16 @@
+// INFERRED: evidence and ATC, given only a region.
+// The helper is declared `at [h]`: it may be called at exactly the handler's
+// region, so its body is checked there. The operation is then at distance 0
+// and the ATC is the hole. The same works for a recursive helper.
+def main(): Bool = {
+  try {
+    def helper() at [h]: Int / (Int => Bool) = { h.ask() }
+    def rec loop(n: Int) at [h]: Int / (Int => Bool) = {
+      if (n == 0) { helper() } else { loop(n - 1) }
+    }
+    loop(3)
+  } with h: Bool {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

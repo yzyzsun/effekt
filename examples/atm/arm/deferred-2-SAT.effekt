@@ -10,7 +10,7 @@ def main(): Bool = {
       val run = try {
         val result = lazyValue.force(); result
       } with lazyValue: ((s: {d: Deferred | content(d) == r}) =>[top] {v: Int | v == r}) {
-        def force(u: Unit): {v: Int | v == r} /
+        def force(): {v: Int | v == r} /
           (((s: Deferred) =>[top] {v: Int | v == r}) =>
            ((s: {d: Deferred | content(d) == r}) =>[top] {v: Int | v == r})) = {
           fun (s: {d: Deferred | content(d) == r}) at [top]: {v: Int | v == r} {
@@ -26,7 +26,7 @@ def main(): Bool = {
     }
   }
   def testInteger(n: Int) at [top]: {v: Int | v == n} = {
-    val run = test(n); run(fun (u: Unit): {v: Int | v == n} { n })
+    val run = test(n); run(fun (): {v: Int | v == n} { n })
   }
   val result = testInteger(7); result == 7
 }

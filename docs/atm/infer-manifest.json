@@ -4,7 +4,7 @@
     {
       "source": "active-three-counts.effekt",
       "port": "examples/atm/infer/active-three-counts.effekt",
-      "port_sha256": "d5e6eaa0ff6706690b05a9441c58a6ee322c073c6f22350e7f625bb7b31165cb",
+      "port_sha256": "872afa036128d259ce01aeb21ec8210f145802ad378881e7aae3498529f3c09d",
       "expected": "accept",
       "operation_distances": [
         0,
@@ -22,7 +22,7 @@
     {
       "source": "active-three-multishot.effekt",
       "port": "examples/atm/infer/active-three-multishot.effekt",
-      "port_sha256": "1c1292fa946f66c5adf9c70edc03a84a7b0fda7914239c11bf469fd5c204b83b",
+      "port_sha256": "72351a3dd1ef03675f414b6f01704404ad54ba2017e6d02b9fe9e8654db9336e",
       "expected": "accept",
       "operation_distances": [
         0,
@@ -40,7 +40,7 @@
     {
       "source": "nested-residuals.effekt",
       "port": "examples/atm/infer/nested-residuals.effekt",
-      "port_sha256": "c44452267de062ad590c6d012c88ea6dd95978b579442834d07160c401f4d48a",
+      "port_sha256": "b91b9fb74d997db784693d9c233034001baac3d135ab9f890e3c056e00e4a0e5",
       "expected": "accept",
       "operation_distances": [
         0,
@@ -58,7 +58,7 @@
     {
       "source": "mixed-answer-layers.effekt",
       "port": "examples/atm/infer/mixed-answer-layers.effekt",
-      "port_sha256": "50451e51d4b7e65557603b90a34d618917e56b8a9618e34e4ab33bc1b7cb4963",
+      "port_sha256": "de202c7157dff5d5a6074ed9e9ba4185f80f82b892740977329d2891645c04d8",
       "expected": "accept",
       "operation_distances": [
         0,
@@ -76,7 +76,7 @@
     {
       "source": "shadowed-capabilities.effekt",
       "port": "examples/atm/infer/shadowed-capabilities.effekt",
-      "port_sha256": "127abf4837d3348299296f00f26b524369c23239ec68a0bf405b930aecb91f0e",
+      "port_sha256": "74c3458533786bf1c3bd9590f061ee3c2747e4590d763d25d93aad36d9a0a585",
       "expected": "accept",
       "operation_distances": [
         0,
@@ -94,7 +94,7 @@
     {
       "source": "polymorphic-outer-call.effekt",
       "port": "examples/atm/infer/polymorphic-outer-call.effekt",
-      "port_sha256": "2e75c2331818f7a9514656278a14bb15e2605ea4cc87401b1d903ff40f2d4c7c",
+      "port_sha256": "e3c9ea4c719ac1b8ee122bc6f77eb34495fb389395761a5530c15bea9099b4c8",
       "expected": "unsupported",
       "diagnostic_kind": "Unsupported",
       "runtime": null,

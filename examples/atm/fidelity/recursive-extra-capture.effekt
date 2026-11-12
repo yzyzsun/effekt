@@ -4,7 +4,7 @@ def main(): Int = {
   def rec count(x: Int): Int = { if (x == 0) { 42 } else { count(x - 1) } }
   use(count)
  } with h: Int {
-  def unused(u: Unit): Int / (Int => Int) = { resume(0) }
+  def unused(): Int / (Int => Int) = { resume(0) }
   return x => { x }
  }
 }

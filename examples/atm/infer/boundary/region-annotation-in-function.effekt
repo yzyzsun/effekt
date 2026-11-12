@@ -1,0 +1,18 @@
+// NOT INFERRED: evidence that would have to pass through a function body.
+// g is annotated at the handler's region and calls `outer`, which lives at the
+// top region. That needs evidence from h to top with nothing left over, but
+// the path leaves the enclosing function f, whose caller is not yet known.
+// Repair: region-annotation-in-function-annotated.effekt.
+def main(): Int = {
+  def outer() = { () }
+  def f() = {
+    try {
+      val g: ((Unit) => Unit) at {h} = fun (u) { outer() };
+      g(); 42
+    } with h: Int {
+      def unused(): Unit / (Int => Int) = { resume() }
+      return x => { x }
+    }
+  }
+  f()
+}

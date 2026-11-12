@@ -1017,3 +1017,45 @@ Results, with the same validation commands as the previous entry: **503 ATM
 tests passed** (500 before), **35 Core/monomorphization tests passed**,
 **Scala.js compilation passed**, and both file examples returned **42**.
 `git diff --check` passed.
+
+## 2026-11-13: ARM fidelity re-audit and inference boundary examples
+
+Documentation, examples and tooling only; the checker is unchanged.
+
+- **ARM audit.** All 52 pinned coar sources were fetched at `d293ee67` and match
+  the manifest's source hashes. The 30 distinct ports were read against their
+  originals and the 22 variants compared by diff. The result is
+  [ARM-FIDELITY.md](ARM-FIDELITY.md); the earlier class counts are confirmed
+  (22 same program, 15 ghost argument, 4 exception re-encoded, 11 rewritten).
+- **Stale hashes.** 38 port hashes in `arm-manifest.json` and
+  `paper-coverage.json` were refreshed. Commit `6b04e70d3` had rewritten those
+  ports line for line from `local` arrows to fixed-region arrows.
+  `python3 docs/atm/paper_coverage.py` passes again (it failed before).
+- **Inference boundary.** 20 new files in `examples/atm/infer/boundary`: 9
+  rejected programs that each name something not inferred, 8 annotated repairs
+  and 3 inferred programs. `examples/atm/infer/README.md` tabulates them.
+  `check_examples.py` has a new `inference_limit` category for the 9.
+
+Results: **516 ATM tests passed** (503 before; the 13 new ones are
+`AtmInferBoundaryTests`), **35 Core/monomorphization tests passed**, and
+**Scala.js compilation passed**. `check_examples.py` reports 109 files with no
+inventory mismatch: 75 accepted, 21 contract rejections, 9 inference limits, 1
+type rejection, 3 unsupported. `git diff --check` passed.
+
+Not redone: the reports under `results/` (inspection and timing) predate the
+checker changes of this date and fail their compiler-digest check until
+`benchmark_arm.py inspect` and `time` are rerun.
+
+### Example simplification (same date)
+
+Unit parameters (`def f(u: Unit)`, `fun (u: Unit)`) became `()` at 97 places,
+and 8 plain `Unit`/`Int`/`Bool` result types were dropped from non-recursive
+pure definitions, in 39 example files outside `infer/boundary`. Each file was
+re-checked after the edit: verdict, checked type, diagnostic and run output are
+identical to before for all 89 files. Operation clauses, interface
+declarations, recursive and fixed-region definitions, and every refinement or
+effectful result type are untouched. Recorded hashes were refreshed (8 ARM
+ports, the 6 nested-handler files, 13 coverage entries). One regression in
+`AtmInferTests` rewrote `def ask(u: Unit)` in an example and now targets
+`def ask()`. All **516 ATM tests** and **35 Core tests** pass, Scala.js
+compiles, and both validators pass.

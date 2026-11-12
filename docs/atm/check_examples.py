@@ -17,6 +17,19 @@ NEGATIVES = {Path(e['port']).relative_to('examples/atm').as_posix() for e in ARM
              if e['status'] == 'ported' and e.get('reviewed_expected', e['expected']) == 'reject'}
 TYPE_NEGATIVES = {'file-protocol-invalid.effekt': 'A_Do: operation requires answer Open / pure, found Closed / pure'}
 UNSUPPORTED = {'callback-under-handler.effekt', 'multiple-capabilities.effekt', 'infer/polymorphic-outer-call.effekt'}
+# examples/atm/infer/boundary: programs rejected because something is not
+# inferred. Each maps to its diagnostic kind and a fragment of its message.
+INFERENCE_LIMITS = {
+    'infer/boundary/function-outer-operation.effekt': ('Unsupported', 'symbolic distance'),
+    'infer/boundary/call-context-argument.effekt': ('TypeError', 'expects 1 explicit ATC arguments'),
+    'infer/boundary/recursive-helper.effekt': ('Unsupported', 'symbolic distance'),
+    'infer/boundary/capability-parameter.effekt': ('Unsupported', 'symbolic distance'),
+    'infer/boundary/missing-inherited-answer.effekt': ('TypeError', 'needs an inherited final answer type'),
+    'infer/boundary/region-annotation-in-function.effekt': ('TypeError', 'cannot discharge'),
+    'infer/boundary/branch-function-regions.effekt': ('TypeError', 'Guarded join is undefined'),
+    'infer/boundary/handler-answer.effekt': ('TypeError', 'operation requires answer Bool'),
+    'infer/boundary/clause-answer.effekt': ('ContractFailure', 'Expected Bool, found Int'),
+}
 
 
 def main():
@@ -44,12 +57,13 @@ def main():
         directory = ROOT / 'examples/atm'
         paths = sorted(directory.rglob('*.effekt'))
         names = {p.relative_to(directory).as_posix() for p in paths}
-        if not (NEGATIVES | TYPE_NEGATIVES.keys() | UNSUPPORTED) <= names:
+        if not (NEGATIVES | TYPE_NEGATIVES.keys() | UNSUPPORTED | INFERENCE_LIMITS.keys()) <= names:
             raise RuntimeError('A named negative or unsupported fixture is missing')
         rows = []
         for path in paths:
             name = path.relative_to(directory).as_posix()
-            expected = ('contract_rejection' if name in NEGATIVES else
+            expected = ('inference_limit' if name in INFERENCE_LIMITS else
+                        'contract_rejection' if name in NEGATIVES else
                         'type_rejection' if name in TYPE_NEGATIVES else
                         'unsupported' if name in UNSUPPORTED else 'accepted')
             row = dict(file=path.relative_to(ROOT).as_posix(), sha256=digest(path), expected=expected)
@@ -59,7 +73,9 @@ def main():
                 check = json.loads(checked.stdout)
                 if check['status'] not in ('accepted', 'rejected') or checked.returncode != (0 if check['status'] == 'accepted' else 1):
                     raise ValueError('Inconsistent checker exit status')
+                limit = INFERENCE_LIMITS.get(name)
                 outcome = ('accepted' if check['status'] == 'accepted' else
+                           'inference_limit' if limit and check['kind'] == limit[0] and limit[1] in check.get('message', '') else
                            'contract_rejection' if check['kind'] == 'ContractFailure' else
                            'type_rejection' if check['kind'] == 'TypeError' and check.get('message') == TYPE_NEGATIVES.get(name) else
                            'unsupported' if check['kind'] == 'Unsupported' else check['kind'])
@@ -71,7 +87,7 @@ def main():
         report = dict(schema_version=1, created_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                       compiler_sha256=compiler_digest(), build_command=None if args.classpath_file else build_command,
                       classpath_supplied=bool(args.classpath_file),
-                      scope='All existing examples/atm/**/*.effekt files. Unsupported entries are limitations, not successful negative tests. Runtime checks are separate.',
+                      scope='All existing examples/atm/**/*.effekt files. Unsupported and inference_limit entries are limitations, not successful negative tests. Runtime checks are separate.',
                       counts=dict(collections.Counter(r['outcome'] for r in rows)),
                       inventory_mismatches=sum(not r['matches_inventory'] for r in rows), results=rows)
         args.output.write_text(json.dumps(report, indent=2) + '\n')

@@ -1,0 +1,13 @@
+// NOT INFERRED: the ATC of an operation on a capability received as a
+// parameter. The capability's region is abstract and the inner function is
+// ordinary, so the distance to it is symbolic.
+// Repair: capability-parameter-annotated.effekt.
+def main(): Bool = {
+  val invoke = fun (c: { def ask(): Int / (Int => Bool); }) {
+    fun (): Int / (Int => Bool) { c.ask() }
+  };
+  try { invoke(h)() } with h: Bool {
+    def ask(): Int / (Int => Bool) = { val n = resume(42); n == 42 }
+    return x => { x }
+  }
+}

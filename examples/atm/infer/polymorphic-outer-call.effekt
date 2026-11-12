@@ -6,20 +6,20 @@
 //
 def main(): Bool = {
   try {
-    def callback(u: Unit): Int / (Int => Bool) = {
+    def callback(): Int / (Int => Bool) = {
       outer.ask()
     }
     try {
       callback()
     } with inner: Int / (Int => Bool) {
-      def unused(u: Unit): Unit /
+      def unused(): Unit /
         (Int / (Int => Bool) => Int / (Int => Bool)) = {
         resume()
       }
       return x => { x }
     }
   } with outer: Bool {
-    def ask(u: Unit): Int / (Int => Bool) = {
+    def ask(): Int / (Int => Bool) = {
       val n = resume(42);
       n == 42
     }

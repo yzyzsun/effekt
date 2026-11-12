@@ -67,6 +67,9 @@ relate the counter result to its initial state.
 
 ## What ported means here
 
+[ARM-FIDELITY.md](ARM-FIDELITY.md) is the file-by-file audit against the pinned
+originals. In brief:
+
 The universal coar assertions remain; `main` supplies separate executable
 witnesses. Source correspondence is documented per family in
 [BENCHMARKS.md](BENCHMARKS.md#adaptations-and-limits-of-the-ports) and per source in
