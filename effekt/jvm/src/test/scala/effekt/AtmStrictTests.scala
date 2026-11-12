@@ -47,6 +47,19 @@ class AtmStrictTests extends munit.FunSuite {
     }""", "needs its answer types")
   }
 
+  test("strict mode does not eta-expand a named function at another region") {
+    onlyDefault("""def main(): Int = {
+      try {
+        def apply(f: (Int) => Int): Int = { f(42) }
+        def inc(x: Int): Int = { x }
+        apply(inc)
+      } with h: Int {
+        def unused(u: Unit): Unit / (Int => Int) = { resume() }
+        return x => { x }
+      }
+    }""", "Expected")
+  }
+
   test("strict mode does not let an explicit ATC replace the inherited answer") {
     onlyDefault("""def main(): Bool = {
       try {

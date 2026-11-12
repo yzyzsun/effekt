@@ -869,10 +869,30 @@ object Checker {
           finishValue(abstraction(source, parameter, arg, Some(declared), body, f.region, Some(id), env, Some(caller), callerName))
         case _ => value(source, env)
       }
-      require(subtype(checked.tpe, expected, env.effectBounds, env.logic),
-        s"Expected ${show(expected)}, found ${show(checked.tpe)}", DiagnosticKind.ContractFailure)
-      checked
+      if subtype(checked.tpe, expected, env.effectBounds, env.logic) then checked
+      else etaExpanded(source, checked.tpe, expected, env).getOrElse(
+        throw Diagnostic(s"Expected ${show(expected)}, found ${show(checked.tpe)}", DiagnosticKind.ContractFailure))
     }
+
+    /** S_Fun relates arrows at the same region only, so a named function at
+     * rho is not a subtype of an arrow expected at another region rho0, even
+     * when every caller at rho0 can reach rho. The paper's remedy is to write
+     * the eta-expansion `fun (y) { f(y) }`, which A_AbsChk checks against the
+     * expected arrow: the call's requirement on rho is captured and discharged
+     * by rho0 <= rho. This inserts exactly that term, and nothing else: it is
+     * rejected whenever the hand-written expansion would be. Strict mode
+     * inserts no term.
+     */
+    private def etaExpanded(source: Value, actual: Type, expected: Type, env: Environment): Option[CheckedValue] =
+      (source, actual, expected) match {
+        case (_: Value.Variable, a: Type.Function, b: Type.Function)
+            if !strict && a.region != b.region && a.caller.isEmpty && b.caller.isEmpty =>
+          val parameter = fresh("eta")
+          val expansion = Value.UnannotatedLambda(parameter, None, Term.Apply(source, Value.Variable(parameter)))
+          try Some(checkValue(expansion, expected, env))
+          catch { case _: Diagnostic => None }
+        case _ => None
+      }
 
     private def inferValue(v: Value, env: Environment): CheckedValue = v match {
       case _ if namedLambda(v, env).nonEmpty => namedAbstraction(namedLambda(v, env).get, None, env)

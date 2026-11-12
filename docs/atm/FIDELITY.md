@@ -249,6 +249,15 @@ function body. A region is still fixed by an expected arrow, for example
 `val f: ((Unit) => Unit) at {h} = fun (u) { () }`, and recursive definitions
 keep the lexical region because it must be assumed before the body is checked.
 
+`S_Fun` relates arrows at the same region only, and an unqualified arrow in a
+parameter annotation denotes the lexical region. A named function at `rho`
+passed where an arrow at another region `rho0` is expected is therefore
+eta-expanded to `fun (y) { f(y) }` and checked by `A_AbsChk` against the
+expected arrow, which succeeds exactly when the hand-written expansion would:
+the call's requirement on `rho` must be discharged by known evidence
+`rho0 <= rho`. A function at a handler region is still not usable at a higher
+region. Only variables are expanded, and strict mode inserts no term.
+
 ## Exact-region arrows: continuations and fixed-region functions
 
 `(T) =>[r] C` is the declarative `T_Abs`/`T_App` arrow: callable at exactly `r`,
@@ -282,6 +291,7 @@ types a term the printed rules do not:
 | A handler in synthesis position gets a proposed answer type (`handlerResultValue`) | rejected: `A_Handle` is a checking rule |
 | An operation clause without answer types defaults to `C => C` | rejected |
 | An operation with an explicit ATC is typed without an inherited answer, giving an impure type under the empty mode | rejected: `pi(C) = Omega` |
+| A named function checked against an arrow at another region is eta-expanded | rejected: `S_Fun` needs equal regions |
 
 Explicit kind, evidence and ATC syntax, fixed-region functions and the other
 surface forms are unaffected; strict mode is about inserted annotations, not

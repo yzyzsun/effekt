@@ -998,3 +998,22 @@ accepts 30 of them. The 34 others need an inserted annotation (31 `closeLet`,
 2 default clause answers, 1 proposed handler answer); the 31 are exactly the
 accepted ARM ports. The JSON snapshots under `results/` predate these changes
 and were not regenerated.
+
+## 2026-11-13: eta-expansion of a named function at another region
+
+The minimum-region change above made `apply(inc)` fail inside a handler when
+`inc` is a result-annotated definition (now at `top`) and `apply`'s parameter is
+an unqualified arrow (at the handler region); the previous commit accepted it
+and no test covered it. `checkValue` now eta-expands a variable of ordinary
+arrow type checked against an ordinary arrow at a different region and checks
+the expansion by `A_AbsChk`. The original mismatch diagnostic is kept when the
+expansion fails. Strict mode does not expand.
+
+New regressions: acceptance and execution of the pattern, rejection in the
+opposite direction (a handler-region function at `top`), and rejection in
+strict mode.
+
+Results, with the same validation commands as the previous entry: **503 ATM
+tests passed** (500 before), **35 Core/monomorphization tests passed**,
+**Scala.js compilation passed**, and both file examples returned **42**.
+`git diff --check` passed.

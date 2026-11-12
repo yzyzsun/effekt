@@ -91,6 +91,35 @@ class AtmAbstractionTests extends munit.FunSuite {
     assertEquals(make.result.value.asInstanceOf[Type.Function].region, Some(Top))
   }
 
+  test("a named function is eta-expanded when an arrow at a lower region is expected") {
+    // inc has region top; apply's parameter is an arrow at the handler region.
+    run("""def main(): Int = {
+      try {
+        def apply(f: (Int) => Int): Int = { f(42) }
+        def inc(x: Int): Int = { x }
+        apply(inc)
+      } with h: Int {
+        def unused(u: Unit): Unit / (Int => Int) = { resume() }
+        return x => { x }
+      }
+    }""")
+  }
+
+  test("eta-expansion does not move a handler-region function to a higher region") {
+    val result = Parser.parse("""def main(): Int = {
+      def apply(f: (Int) => Int): Int = { f(42) }
+      try {
+        val inc: ((Int) => Int) at {h} = fun (x) { x };
+        apply(inc)
+      } with h: Int {
+        def unused(u: Unit): Unit / (Int => Int) = { resume() }
+        return x => { x }
+      }
+    }""").flatMap(Checker.check)
+    assert(result.isLeft)
+    assert(result.swap.toOption.get.message.startsWith("Expected"), result.toString)
+  }
+
   test("an annotated function may leave the handler in which it is defined") {
     run("""def main(): Int = {
       val f = try {
