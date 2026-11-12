@@ -54,8 +54,10 @@ class AtmTests extends munit.FunSuite {
   test("opaque effects do not have a final-answer projection") {
     reject(original("effect-polymorphic"), "final-answer projection is undefined")
   }
-  test("a continuation cannot be returned through an ordinary arrow") { reject(original("stored-resumption"), "~>") }
-  test("return clauses have empty inherited-answer mode") { reject(original("return-effects"), "inherited final answer") }
+  test("a continuation cannot be returned through an ordinary arrow") { reject(original("stored-resumption"), "=>[top]") }
+  test("A_HRet checks a return clause with inherited answer pi(C), so it may perform an outer operation") {
+    run(original("return-effects"), "false")
+  }
   test("protocol violation is rejected at the ATC hole") { reject(source("file-protocol-invalid"), "requires answer Open") }
   test("unbound capability is rejected") { reject("def main(): Int = { missing.ask() }", "Unknown") }
   test("handler capability cannot escape") {
@@ -119,7 +121,7 @@ class AtmTests extends munit.FunSuite {
     val input = """def main(): Int = {
       def outer(u: Unit): Unit = { () }
       try {
-        def inner(u: Unit): Unit = { () }
+        val inner: ((Unit) => Unit) at {h} = fun (u) { () };
         def both(u: Unit) = { outer(); inner() }
         both(); 42
       } with h: Int {

@@ -75,8 +75,8 @@ A continuation may be stored and returned under a compatible fixed-region arrow 
 the same region. Local Core lambdas validate their body region and contract
 before lowering to a boxed block with zero call-evidence parameters.
 
-`return effect` changes the source checking mode explicitly. Both default and
-explicit effectful return clauses lower to the same `Handle.onReturn` structure;
+`return effect` is a deprecated synonym of `return`. Pure and effectful return
+clauses lower to the same `Handle.onReturn` structure;
 there is no separate runtime effect-return construct.
 
 Refinements and answer transitions stay in Core. `LiftedLowering.Program` retains

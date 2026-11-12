@@ -34,9 +34,6 @@ object TypeEquality {
     case (Type.PredicatePoly(x, args, a), Type.PredicatePoly(y, params, b)) =>
       args == params && value(a, b, left.copy(predicates = x :: left.predicates), right.copy(predicates = y :: right.predicates))
     case (Type.Capability(x), Type.Capability(y)) => key(x, left.capabilities) == key(y, right.capabilities)
-    case (Type.Continuation(a, c, r, cs, p), Type.Continuation(b, d, s, ds, q)) =>
-      key(r, left.capabilities) == key(s, right.capabilities) && value(a, b, left, right) && computation(c, d,
-        left.copy(terms = bind(p, left.terms)), right.copy(terms = bind(q, right.terms)))
     case (Type.FixedFunction(a, c, _, r, p), Type.FixedFunction(b, d, _, s, q)) =>
       value(a, b, left, right) && computation(c, d,
         left.copy(terms = bind(p, left.terms)), right.copy(terms = bind(q, right.terms))) &&

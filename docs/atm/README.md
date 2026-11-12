@@ -9,8 +9,8 @@ backends are available. See [MIGRATION-v0.3.0.md](MIGRATION-v0.3.0.md) for the p
 
 The ATM checker implements a subset of the region/evidence algorithm
 from Section 6.1 of the supplied paper and supplemental Section 3 (Figures 9--15).
-Explicit fixed-region contracts and `return effect` expose additional declarative
-rules through checked surface forms. They are documented separately from the
+Explicit fixed-region contracts expose the declarative exact-region arrow
+through a checked surface form. They are documented separately from the
 printed inference rules. The former ordered-handler-stack checker is not used
 as a fallback.
 
@@ -91,11 +91,13 @@ See [VALIDATION.md](VALIDATION.md) for the distinct runs.
   region. A function application supplies its caller region, projected distance,
   and reconstructed evidence. It does not lift an answer effect across extra
   caller-owned delimiters.
-- Continuations have a distinct internal arrow. `A_KApp*` requires exactly the
-  handler clause's ambient region and emits a plain call. A continuation can be
-  aliased and called there, but cannot be coerced into an ordinary function,
-  returned through an ordinary arrow, or called beneath a different region. It
-  can be exposed as an explicit same-region fixed arrow, stored and called there.
+- A continuation has the exact-region arrow `(T) =>[r] C`, the surface form of
+  the paper's continuation arrow; there is no separate internal type and no
+  coercion. `A_KApp*` requires exactly the handler clause's ambient region and
+  emits a plain call. A continuation can be aliased, stored, returned and called
+  at that region, but is never an ordinary region-polymorphic function and
+  cannot be called beneath a different region. (The paper's algorithm does not
+  let a continuation be passed or returned; see FIDELITY.md.)
 - Capability quantification binds a region and a capability value. Its internal
   scheme records residual constraints mentioning that region; instantiation
   reconstructs their evidence. Type and predicate quantification remain explicit.
@@ -109,10 +111,11 @@ See [VALIDATION.md](VALIDATION.md) for the distinct runs.
 - Computation types now retain dependent result binders. Conditional answers use
   guarded joins and meets with the paper's variance. Answer subtyping uses
   `S_CPureImpure` and `S_CImpure`, without the old erased-shape equality restriction.
-- Default handler return clauses use empty inherited-answer mode. Explicit
-  `return effect x => { ... }` checks against the annotated answer under its
-  final-answer mode, as a declarative `T_HRet` bridge. Their logical context
-  contains the returned value's type, not the body's internal path assumptions.
+- Every handler return clause is checked by `A_HRet` against the body's
+  initial answer `C` with inherited answer `pi(C)`, so it may perform outer
+  operations. `return effect x => { ... }` is a deprecated synonym of
+  `return x => { ... }`. The logical context contains the returned value's
+  type, not the body's internal path assumptions.
 
 The old stack-lifting, scoped-tail and repeatable/after-constraint design is
 archived in [history/prototype-design.md](history/prototype-design.md). Its old
@@ -133,11 +136,15 @@ def main(): Int = {
 }
 ```
 
-A function with both domain and result annotations elaborates to an annotated
-lambda checked by `A_AbsChk`. Its omitted region defaults to the lexical region;
-an expected arrow provides the region when checking an explicitly annotated
-lambda. Function types with `at {h}` select the handler region (multiple names
-require a known minimum region). This notation also records backend captures.
+A function with both domain and result annotations checks its body against the
+annotated result, as in `A_AbsChk`. Its region is not the lexical region: as in
+`A_AbsSyn`, it is the minimum of the captured requirements, so adding a result
+annotation never makes a function less general. An expected arrow provides the
+region when a lambda is checked against a type. Recursive definitions are the
+exception: their region is assumed before the body is checked and remains the
+lexical region. Function types with `at {h}` select the handler region
+(multiple names require a known minimum region). This notation also records
+backend captures.
 
 A function with a domain but no result annotation, such as `use` above, uses
 `A_AbsSyn`: synthesize the body in empty-answer mode and infer the minimum region
@@ -367,11 +374,11 @@ fixed-region recursion remains at the enclosing lexical region. Curried Fig. 1
 uses a fixed-region function at its explicitly supplied region as the ordinary
 helper's result; both the ordinary domain and codomain are caller-independent.
 
-`return effect x => { ... }` explicitly enables effects in a handler's return
-clause using its known result contract. The clause executes outside the exited
-handler and cannot invoke that handler's capability. Ordinary `return x =>`
-keeps the previous empty-mode rule. Both extensions and their limitations are
-explained in [FIDELITY.md](FIDELITY.md).
+A handler's return clause may be effectful: it is checked against its known
+result contract under that contract's final answer (`A_HRet`). The clause
+executes outside the exited handler and cannot invoke that handler's
+capability. The fixed-region extension and its limitations are explained in
+[FIDELITY.md](FIDELITY.md).
 
 For repeated/composed callbacks, explicit value-type parameters can describe
 pure answer endpoints: `(Answer => Answer)` is repeatable, and
@@ -430,16 +437,16 @@ explicitly. The retained legacy emitter uses finite answer sums and JavaScript
 | `atc` | `Evidence.atc`, `AnswerContext.plug` |
 | `A_AbsChk`, `A_AbsSyn` | `Checker.abstraction`, `checkValue`; `Elaboration.substitute` |
 | `A_App*` | `Checker.inferTerm` ordinary application |
-| `A_KApp*` | Same branch, separate `Type.Continuation`, exact region test |
+| `A_KApp*` | Same branch; continuations have `Type.FixedFunction`, exact region test |
 | Declarative `T_Abs`/`T_App` bridge | Explicit fixed-region contracts, `Checker.fixedAbstraction`, `Type.FixedFunction`; exact region, no call witness |
 | `A_TAbs`, `A_TApp*` (supported kinds) | Value/type/predicate/capability abstractions and instantiations; capability scheme residual bounds |
 | `A_Return*`, `A_Let*`, `A_SubC` | `inferTerm`, inherited-answer mode, `checkTerm`, `ascribe` |
 | `A_If*`, guarded join/meet | `Checker.guarded` |
 | `A_Do` | Evidence reconstruction, dependent substitution, `Evidence.atc` |
 | Explicit declarative invocation and kind instantiation | `Annotations`, `Checker.resolveArgument`, `inferOperation`; `Core.validate` checks scoped kinds and symbolic ATC depths |
-| `A_Handle`, `A_HRet`, `A_HOp` | Fresh region/edge; residual scope check; separate clause modes and continuation arrow; return-mode bridge explained in FIDELITY.md |
+| `A_Handle`, `A_HRet`, `A_HOp` | Fresh region/edge; residual scope check; return and operation clauses checked under `pi(C)`; continuation bound at the exact-region arrow |
 | `S_Fun`, `S_Refine`, `S_CPureImpure`, `S_CImpure` | `Checker.subtype`; sorted SMT verification conditions |
-| Declarative `T_HRet` bridge | Explicit `return effect`; expected computation supplies the inherited final answer |
+| Printed algorithm without inserted annotations | `Checker.checkStrict`, `--check-strict`; see FIDELITY.md |
 | `S_Cap` | `Checker.operationsSubtype`; contravariant arguments and covariant dependent computation contracts |
 
 ## Run and inspect

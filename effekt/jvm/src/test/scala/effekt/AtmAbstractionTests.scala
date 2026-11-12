@@ -77,14 +77,31 @@ class AtmAbstractionTests extends munit.FunSuite {
     assertEquals(call.distance.concrete, Some(1))
   }
 
-  test("A_AbsSyn rejects the unnamed nested annotated lambda") {
-    val result = Parser.parse("""def main(): Int = {
+  test("a result annotation does not pin a nested lambda to the enclosing body region") {
+    // rho is the minimum captured requirement (top here), so the outer
+    // codomain does not mention the outer body region.
+    val p = run("""def main(): Int = {
       val make = fun (u: Unit) { fun (x: Int): Int { x } };
-      42
-    }""").flatMap(Checker.check)
-    assert(result.isLeft)
-    assert(result.swap.toOption.get.message.contains("A_AbsSyn"))
-    assert(result.swap.toOption.get.message.contains("alpha notin fv(C)"))
+      val f = make();
+      f(42)
+    }""")
+    val make = terms(p.body).collectFirst { case Core.Term(Core.Node.Let("make", binding, _), _, _) =>
+      binding.tpe.value.asInstanceOf[Type.Function] }.get
+    assertEquals(make.region, Some(Top))
+    assertEquals(make.result.value.asInstanceOf[Type.Function].region, Some(Top))
+  }
+
+  test("an annotated function may leave the handler in which it is defined") {
+    run("""def main(): Int = {
+      val f = try {
+        def g(x: Int): Int = { x }
+        g
+      } with h: ((Int) => Int) {
+        def unused(u: Unit): Unit / (((Int) => Int) => ((Int) => Int)) = { resume() }
+        return x => { x }
+      };
+      f(42)
+    }""")
   }
 
   test("fresh caller occurrences in answer endpoints and nested domains are rejected") {

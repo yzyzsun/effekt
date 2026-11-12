@@ -105,7 +105,6 @@ object Annotations {
             case _ => c.distance
           }, c.contexts.map((n, k) => (n, kind(k))))))
       case Type.FixedFunction(a, r, cs, scope, n) => Type.FixedFunction(typ(a), computation(r), cs.map(region), scope.map(region), n)
-      case Type.Continuation(a, r, scope, cs, n) => Type.Continuation(typ(a), computation(r), region(scope), cs.map(region), n)
       case Type.TypePoly(n, b) => Type.TypePoly(n, typ(b))
       case Type.PredicatePoly(n, args, b) => Type.PredicatePoly(n, args, typ(b))
       case Type.EffectPoly(n, b, domain) => Type.EffectPoly(n, typ(b), bound(domain))
@@ -247,7 +246,6 @@ object Annotations {
           result = before ++ (result -- caller.map(_.region))
           computation(r); t
         case Type.FixedFunction(a, r, _, scope, _) => typ(a); computation(r); scope.foreach(region); t
-        case Type.Continuation(a, r, scope, _, _) => typ(a); computation(r); region(scope); t
         case Type.CapabilityPoly(n, ops, b, _, scope, obligations) =>
           val before = result; result = Set.empty; ops.foreach(signature); typ(b)
           obligations.foreach(o => { region(o.constraint.from); region(o.constraint.to) })

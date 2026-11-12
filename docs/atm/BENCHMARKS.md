@@ -239,7 +239,7 @@ not additional migrated paper benchmarks.
 | [`refinement-polymorphic.effekt`](../../examples/atm/refinement-polymorphic.effekt) | Accepted: explicit rigid value-type and refinement-predicate polymorphism |
 | [`repeatable-effect.effekt`](../../examples/atm/repeatable-effect.effekt) | Accepted with narrowed annotations: repeated callbacks with equal answer endpoints |
 | [`return-clause.effekt`](../../examples/atm/return-clause.effekt) | Accepted: nonidentity return clause on normal completion and resumption |
-| [`return-effects.effekt`](../../examples/atm/return-effects.effekt) | Accepted: explicit `return effect` invokes an outer capability after the inner delimiter exits |
+| [`return-effects.effekt`](../../examples/atm/return-effects.effekt) | Accepted: the return clause invokes an outer capability after the inner delimiter exits |
 | [`stored-resumption.effekt`](../../examples/atm/stored-resumption.effekt) | Accepted: return and later invoke a resumption through its exact-region local arrow |
 
 The earlier local-function increment repaired ten examples: seven through language
@@ -248,7 +248,7 @@ examples remain, alongside the explicit symbolic-distance limitation in `infer`.
 file protocol. `distribution-UNSAT.effekt` is accepted for the source-label reason
 above; it is not a successful negative test.
 
-`local` functions and `return effect` are explicit declarative forms, not rules
+`local` functions are an explicit declarative form, not a rule
 silently added to ordinary `A_Abs` inference. Operations still use the paper's
 residual/evidence machinery and partial ATC inference. Full declarative target
 checking and Definition 17's type translation remain unfinished.

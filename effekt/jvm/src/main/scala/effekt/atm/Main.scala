@@ -14,16 +14,16 @@ object Main {
   def main(args: Array[String]): Unit = {
     val emitting = args.headOption.exists(Set("--emit", "--emit-effekt"))
     if args.length != (if emitting then 3 else 2) ||
-       !Set("--check", "--check-json", "--elaborate", "--lifted", "--emit", "--emit-effekt", "--run").contains(args(0)) then {
-      System.err.println("Usage: effekt.atm.Main --check INPUT | --check-json INPUT | --elaborate INPUT | --lifted INPUT | --emit INPUT OUTPUT.ss | --emit-effekt INPUT OUTPUT.effekt | --run INPUT")
+       !Set("--check", "--check-strict", "--check-json", "--check-strict-json", "--elaborate", "--lifted", "--emit", "--emit-effekt", "--run").contains(args(0)) then {
+      System.err.println("Usage: effekt.atm.Main --check INPUT | --check-strict INPUT | --check-json INPUT | --check-strict-json INPUT | --elaborate INPUT | --lifted INPUT | --emit INPUT OUTPUT.ss | --emit-effekt INPUT OUTPUT.effekt | --run INPUT")
       sys.exit(2)
     }
     val started = System.nanoTime()
     val checked = for {
       parsed <- Parser.parse(Files.readString(Path.of(args(1))))
-      checked <- Checker.check(parsed)
+      checked <- (if args(0).startsWith("--check-strict") then Checker.checkStrict(parsed) else Checker.check(parsed))
     } yield checked
-    if args(0) == "--check-json" then {
+    if args(0) == "--check-json" || args(0) == "--check-strict-json" then {
       val elapsed = (System.nanoTime() - started) / 1000000.0
       val fields = checked match {
         case Right(p) => s"\"status\":\"accepted\",\"type\":${quote(Syntax.show(p.body.tpe))}"
@@ -35,7 +35,7 @@ object Main {
     checked match {
       case Left(error) => System.err.println(s"ATM error: ${error.message}"); sys.exit(1)
       case Right(program) => try { args(0) match {
-        case "--check" => println(Syntax.show(program.body.tpe))
+        case "--check" | "--check-strict" => println(Syntax.show(program.body.tpe))
         case "--elaborate" => println(Core.show(Core.elaborate(program)))
         case "--lifted" => println(LiftedLowering(program).show)
         case "--emit" => Files.writeString(Path.of(args(2)), DirectBackend.emit(program)); ()

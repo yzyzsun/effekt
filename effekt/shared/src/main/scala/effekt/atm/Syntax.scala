@@ -29,14 +29,11 @@ object Syntax {
     // Neither argument nor result may depend on the implicit fresh caller.
     case Function(argument: Type, result: Computation, captures: Set[String] = Set.empty,
                   region: Option[String] = None, parameter: Option[String] = None, caller: Option[Caller] = None)
-    // A declarative arrow: callable at exactly its region, without a fresh
+    // The paper's continuation arrow, also available as a source type: a
+    // declarative arrow callable at exactly its region, without a fresh
     // region/distance/evidence abstraction. The source contract is (T) =>[r] C.
     case FixedFunction(argument: Type, result: Computation, captures: Set[String] = Set.empty,
                        region: Option[String] = None, parameter: Option[String] = None)
-    // Internal continuation arrow; it may be viewed as an exact-region local
-    // arrow, but never as an ordinary region-polymorphic Function.
-    case Continuation(argument: Type, result: Computation, region: String,
-                      captures: Set[String], parameter: Option[String] = None)
     case CapabilityPoly(parameter: String, operations: List[Signature], body: Type,
                         captures: Set[String] = Set.empty, context: Option[String] = None,
                         obligations: List[Evidence.Obligation] = Nil)
@@ -109,8 +106,6 @@ object Syntax {
     case Ascribe(body: Term, expected: Computation)
     case Assert(condition: Value)
     case LetRec(name: String, parameter: String, argument: Type, result: Computation, definition: Term, body: Term, region: Option[String] = None, caller: Option[String] = None)
-    // Only permitted as a handler return clause, selected by return effect.
-    case ExplicitReturn(body: Term)
     case If(condition: Value, whenTrue: Term, whenFalse: Term)
     case Match(scrutinee: Value, cases: List[MatchCase])
     case Perform(capability: String, operation: String, argument: Value)
@@ -179,8 +174,6 @@ object Syntax {
         region.fold("")(r => s" @${displayName(r)}")
     case Type.FixedFunction(arg, result, _, region, parameter) =>
       s"(${parameter.fold("")(p => displayName(p) + ": ")}${show(arg)}) =>[${region.map(displayName).getOrElse("<unresolved>")}] ${show(result)}"
-    case Type.Continuation(arg, result, region, _, parameter) =>
-      s"(${parameter.fold("")(p => displayName(p) + ": ")}${show(arg)} ~> ${show(result)}) @${displayName(region)}"
     case Type.CapabilityPoly(parameter, operations, body, _, _, obligations) =>
       val contract = operations.map(o => s"def ${o.name}(${show(o.argument)}): ${show(o.result)} / (${show(o.initialAnswer)} => ${show(o.finalAnswer)});").mkString(" ")
       val requirements = if obligations.isEmpty then "" else s" where ${obligations.map(_.constraint).mkString(", ")}"

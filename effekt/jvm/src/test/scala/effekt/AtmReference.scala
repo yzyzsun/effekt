@@ -116,7 +116,6 @@ object AtmReference {
     case Syntax.Term.Assert(v) =>
       if value(v, env) != Value.Boolean(true) then throw new IllegalStateException("Assertion failed")
       Computation.Returned(Value.Unit)
-    case Syntax.Term.ExplicitReturn(body) => term(body, env)
     case Syntax.Term.LetRec(name, parameter, _, _, definition, body, _, _) =>
       lazy val function: Value = Value.Function(arg => term(definition, env.bind(name, function).bind(parameter, arg)))
       term(body, env.bind(name, function))

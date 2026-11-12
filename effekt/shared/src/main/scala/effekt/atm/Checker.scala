@@ -33,6 +33,15 @@ object Checker {
   def check(program: Program): Either[Diagnostic, CheckedProgram] = check(program, RefinementSolver.default)
   def check(program: Program, solver: Logic.Solver): Either[Diagnostic, CheckedProgram] = new Session(solver).check(program)
 
+  /** The printed algorithm only: no annotation is inserted on the user's
+   * behalf. A let whose body type mentions the bound variable is rejected
+   * (the A_Let/A_LetF side condition) instead of being closed existentially,
+   * a handler in synthesis position needs its answer type (A_Handle is a
+   * checking rule), and every operation clause states its answer types.
+   */
+  def checkStrict(program: Program): Either[Diagnostic, CheckedProgram] =
+    new Session(RefinementSolver.default, strict = true).check(program)
+
   /** Optional observations for reporting partial inference on rejected sources.
    * A reconstructed witness can carry residuals even when ATC inference fails.
    * These observations neither discharge obligations nor change the result.
@@ -46,7 +55,8 @@ object Checker {
     Inspection(result, observations.toList)
   }
 
-  private class Session(solver: Logic.Solver, observe: Option[OperationInference => Unit] = None) {
+  private class Session(solver: Logic.Solver, observe: Option[OperationInference => Unit] = None,
+                        strict: Boolean = false) {
     import Logic.Expr
     private var refined = false
     private var datatypes = List.empty[DataDeclaration]
@@ -231,7 +241,6 @@ object Checker {
 
     private def free(tpe: Type): Set[String] = tpe match {
       case Type.Capability(name) => Set(name)
-      case Type.Continuation(arg, result, region, _, _) => free(arg) ++ free(result) + region
       case f: Type.Function => Annotations.regions(Computation(f))
       case Type.FixedFunction(arg, result, _, context, _) => free(arg) ++ free(result) ++ context.toSet.filter(_ != Evidence.Top)
       case Type.CapabilityPoly(name, ops, body, cs, scope, obligations) =>
@@ -262,7 +271,6 @@ object Checker {
       case Type.Pair(a, b) => captures(a) ++ captures(b)
       case Type.Function(_, _, cs, _, _, _)  => cs
       case Type.FixedFunction(_, _, cs, _, _) => cs
-      case Type.Continuation(_, _, _, cs, _) => cs
       case Type.CapabilityPoly(_, _, _, cs, _, obligations) => cs
       case Type.EffectPoly(_, body, _) => captures(body)
       case Type.TypePoly(_, body) => captures(body)
@@ -619,8 +627,6 @@ object Checker {
     private def subtype(actual: Type, expected: Type, bounds: Map[String, EffectBound], logic: Logic.Context = Logic.Context()): Boolean = (actual, expected) match {
       case (Type.FixedFunction(a, r, cs, scope, p), Type.FixedFunction(b, s, ds, target, q)) =>
         subtype(Type.Function(a, r, cs, scope, p), Type.Function(b, s, ds, target, q), bounds, logic)
-      case (Type.Continuation(a, r, region, cs, p), Type.FixedFunction(b, s, ds, target, q)) =>
-        subtype(Type.Function(a, r, cs, Some(region), p), Type.Function(b, s, ds, target, q), bounds, logic)
       case (af @ Type.Function(a, r, cs, scope, parameter, ac), bf @ Type.Function(b, s, ds, target, expectedParameter, bc)) =>
         val id = fresh("argument")
         val v = Expr.Variable(id)
@@ -664,8 +670,6 @@ object Checker {
         val variable = Expr.Variable(name)
         proves(logic.bind(name, Contracts.sort(a).get).assume(Contracts.member(a, variable)), Contracts.member(b, variable))
       case (Type.Pair(a, b), Type.Pair(c, d)) => subtype(a, c, bounds, logic) && subtype(b, d, bounds, logic)
-      // Continuation arrows are usable by A_KApp only; no S_Fun/S_Refl for them.
-      case (_: Type.Continuation, _) | (_, _: Type.Continuation) => false
       case _ => TypeEquality.same(actual, expected)
     }
 
@@ -889,7 +893,7 @@ object Checker {
           checked
         }
         def project(v: CheckedValue): Expr = Contracts.base(v.tpe) match {
-          case _: Type.Function | _: Type.FixedFunction | _: Type.Continuation => Expr.Unit
+          case _: Type.Function | _: Type.FixedFunction => Expr.Unit
           case _ => symbol(v)
         }
         val expression = Option.when(refined)(Datatypes.expression(name, fields.map(project)))
@@ -961,7 +965,10 @@ object Checker {
         val arg = resolveDomain(argument, Some(result), env)
         val id = fresh(parameter)
         val ret = resolve(result, env.copy(region = caller.region, annotationDefaultRegion = Some(env.region)).withCaller(callerName, caller.region).bindIdentity(parameter, arg, id))
-        abstraction(v, parameter, arg, Some(ret), body, Some(env.region), Some(id), env, Some(caller), callerName)
+        // A result annotation fixes C, not the region: as in A_AbsSyn, rho is
+        // the minimum of the captured requirements, so annotating a result
+        // never makes the function less general than leaving it inferred.
+        abstraction(v, parameter, arg, Some(ret), body, None, Some(id), env, Some(caller), callerName)
       case Value.InferredLambda(parameter, argument, body, callerName) =>
         val caller = Caller(fresh("annotationCaller"), fresh("annotationDistance"))
         val annotation = body match { case Term.Ascribe(_, c) => Some(c); case _ => None }
@@ -1264,6 +1271,8 @@ object Checker {
       })
       if (escaping(t.tpe) intersect locals).isEmpty then t
       else {
+        require(!strict, "A_Let: the bound variable occurs in the type synthesized for the body; " +
+          "strict mode inserts no closing annotation")
         val domain = Logic.all(scope.logic.assumptions)
         def quantify(p: Expr, covariant: Boolean, condition: Expr): Expr = {
           val body = Logic.and(condition, if covariant then p else Logic.not(p))
@@ -1351,9 +1360,9 @@ object Checker {
         patternBindings = branches.map(_._1)), env)
     }
 
-    // The explicit mode is needed by the return-clause bridge: synthesize in
-    // empty mode, then apply declarative subsumption to the required answer.
-    // This is not the printed A_SubC mode conclusion when expected is impure.
+    // A_SubC synthesizes with inherited answer type pi(expected); checkTerm
+    // passes exactly that. The explicit mode exists only for match branches,
+    // which check each case under the mode inherited by the whole match.
     private def checkTermInMode(term: Term, expected: Computation, env: Environment,
                                 inherited: Option[Computation]): CheckedTerm = {
       val checked = term match {
@@ -1402,7 +1411,6 @@ object Checker {
         require(Contracts.base(c.tpe) == Type.Bool, "An assertion must be Bool")
         require(proves(env.logic, symbol(c)), s"Refinement assertion is not valid: ${Logic.show(symbol(c))}")
         CheckedTerm(term, adapt(Computation(Type.Unit), inherited, env), c.captures, List(c), logic = env.logic)
-      case Term.ExplicitReturn(_) => fail("return effect is only permitted as a handler return clause")
       case Term.LetRec(name, parameter, argument, result, definition, body, anchor, callerName) =>
         val local = anchor.nonEmpty
         require(anchor.forall(r => env.localRegion(r) == env.region), "A recursive fixed-region definition must use its enclosing lexical region")
@@ -1464,11 +1472,10 @@ object Checker {
               codomain = subst.computation(codomain)
             }
             (fn.argument, codomain, fn.parameter, Some(ev))
+          // A_KApp: continuations and fixed-region functions share the
+          // exact-region arrow; it is applied without evidence.
           case Type.FixedFunction(param, result, _, Some(region), parameter) =>
-            require(env.region == region, "A fixed-region function must be called at exactly its declared region")
-            (param, result, parameter, None)
-          case Type.Continuation(param, result, region, _, parameter) =>
-            require(env.region == region, "A_KApp: continuation application requires exactly its ambient region")
+            require(env.region == region, "A_KApp: an exact-region arrow (a continuation or a fixed-region function) must be applied at exactly its declared region")
             (param, result, parameter, None)
           case other => fail(s"Cannot call ${show(other)}")
         }
@@ -1510,6 +1517,7 @@ object Checker {
       case Term.Handle(cap, result, operations, body, returned, onReturn) =>
         inferHandler(cap, resolve(result, env), operations, body, returned, onReturn, env, inherited)
       case Term.InferredHandle(cap, operations, body, returned, onReturn) =>
+        require(!strict, "A_Handle is a checking rule: strict mode needs the handler's answer type")
         val result = handlerResultValue(cap, operations, body, returned, onReturn, env, Map.empty)
         val candidate = inherited.fold(Computation(result))(answer =>
           Computation(result, Effect.Change(answer, answer)))
@@ -1601,7 +1609,6 @@ object Checker {
           case _: Type.CapabilityPoly => result(Value.Instantiate(f, a))
           case Type.Function(_, r, _, _, _, _) => Contracts.erase(r.value)
           case Type.FixedFunction(_, r, _, _, _) => Contracts.erase(r.value)
-          case Type.Continuation(_, r, _, _, _) => Contracts.erase(r.value)
           case _ => unsupported()
         }
         case Term.Perform(c, op, _) => operation(c, op)
@@ -1610,7 +1617,6 @@ object Checker {
         case Term.Ascribe(_, c) => Contracts.erase(resolve(c, env).value)
         case Term.Handle(_, c, _, _, _, _) => Contracts.erase(resolve(c, env).value)
         case Term.InferredHandle(c, ops, b, x, ret) => handlerResultValue(c, ops, b, x, ret, env, headers)
-        case Term.ExplicitReturn(b) => projectedValue(b, env, headers)
         case Term.If(_, a, b) => same(List(projectedValue(a, env, headers), projectedValue(b, env, headers)))
         case Term.Assert(_) => Type.Unit
         case Term.TypeAlias(n, t, b) =>
@@ -1675,6 +1681,12 @@ object Checker {
       }
       observe.foreach(_(OperationInference(cap, operation, reconstruction, Right(context))))
       val initial = context.plug(op.initialAnswer)
+      // Extension: an explicit ATC determines both answers, so the operation
+      // can be typed without an inherited answer. The result is then impure
+      // under the empty mode, which the printed algorithm never produces
+      // (pi(C) = Omega), so strict mode rejects it.
+      require(!strict || inherited.nonEmpty, s"$cap.$operation needs an inherited final answer type; " +
+        "in strict mode an explicit ATC does not replace it (annotate the enclosing result)")
       val answer = if explicitContext.nonEmpty then context.plug(op.finalAnswer) else inherited.get
       val inferred = Computation(op.result, Effect.Change(initial, answer), resultIdentity)
       val result = if explicitContext.nonEmpty && inherited.nonEmpty then adapt(inferred, inherited, env) else inferred
@@ -1700,6 +1712,8 @@ object Checker {
         // Result-only clauses preserve the enclosing handler's answer. This is
         // surface annotation inference; the ordinary clause and body checks
         // below still validate the resulting explicit operation contract.
+        require(!strict || op.answers.nonEmpty,
+          s"Operation clause ${op.name} needs its answer types; strict mode inserts no default")
         val inferred = Option.when(op.answers.isEmpty)(finalType)
         val annotated = op.copy(answers = op.answers.orElse(Some((finalType, finalType))))
         val signature = resolveSignature(annotated.signature.copy(parameter = Some(op.parameter)), env, inferred,
@@ -1720,20 +1734,17 @@ object Checker {
       }
       require(!free(initial).contains(identity), s"Capability $cap escapes through the handler's return contract")
       val returnEnv = env.bind(returned, checkedBody.tpe.value)
-      // Preserve A_HRet's empty inherited mode. For impure expected answers,
-      // use an explicit synthesis/subsumption bridge (see FIDELITY.md).
       val returnAnswer = checkedBody.tpe.returned.fold(initial)(id =>
         Contracts.substitute(initial, id, Expr.Variable(returnEnv.logicalNames.getOrElse(returned,
           fail("Dependent handler answer requires a logical return value")))))
-      val checkedReturn = onReturn match {
-        // Explicit declarative T_HRet checking: the clause runs outside the
-        // handled region but may itself have the annotated answer effect.
-        case Term.ExplicitReturn(body) => checkTerm(body, returnAnswer, returnEnv)
-        case _ => checkTermInMode(onReturn, returnAnswer, returnEnv, None)
-      }
+      // A_HRet: check the clause against C1 with inherited answer type pi(C1).
+      // A pure clause under an impure C1 is covered by A_ReturnF and A_SubC.
+      val checkedReturn = checkTerm(onReturn, returnAnswer, returnEnv)
       val checkedOps = ops.map { op =>
         require(op.parameter != op.continuation, "An operation argument and resumption need distinct names")
-        val k = Type.Continuation(op.result, op.initialAnswer, env.region, env.capabilities.keySet, op.returned)
+        // A_HOp binds k at the continuation arrow, which is the exact-region
+        // arrow (y: T2) =>[rho] C1 of the surface language.
+        val k = Type.FixedFunction(op.result, op.initialAnswer, env.capabilities.keySet, Some(env.region), op.returned)
         val scope = op.argumentIdentity.fold(env.bind(op.parameter, op.argument))(id => env.bindIdentity(op.parameter, op.argument, id))
         val clause = checkTerm(op.body, op.finalAnswer, scope.bind(op.continuation, k))
         CheckedOperation(op, clause)

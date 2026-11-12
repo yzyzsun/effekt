@@ -3,7 +3,7 @@
 def main(): Int = {
   def outer(u: Unit): Unit = { () }
   try {
-    def inner(u: Unit): Unit = { () }
+    val inner: ((Unit) => Unit) at {h} = fun (u) { () };
     def both(u: Unit) = { outer(); inner() }
     both(); 42
   } with h: Int {

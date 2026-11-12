@@ -91,8 +91,8 @@ retain a distinction between multiple arguments and an explicitly packed pair.
   describes effect sets; these cannot simply be relabeled as one another.
 - ATM `resume()` means `resume(())`. Native Effekt expects the Unit argument;
   Fig. 1 uses the common spelling `resume(())`.
-- Explicit `return x => ...` can transform a handler result, and `return effect`
-  exposes the separately documented declarative bridge.
+- Explicit `return x => ...` can transform a handler result and may perform
+  outer operations; `return effect` is a deprecated synonym.
 - Refinements, measures, explicit regions/distances/evidence/ATCs, and exact-region
   `(T) =>[r] C` contracts remain ATM additions; the `local` keyword is removed. `fun [R: Reg, D: Dist, ...]` introduces
   kinded parameters; bare applications such as `f[h, 1, ...]` select argument

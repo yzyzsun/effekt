@@ -108,7 +108,6 @@ object LiftedLowering {
       case Type.Variable(n) => env.types.getOrElse(n, throw Diagnostic("Unbound Lifted type variable " + n))
       case Type.Pair(a, b) => L.ValueType.Data(pair, List(target(a, env), target(b, env)))
       case Type.Function(a, c, _, _, _, _) => L.ValueType.Boxed(function(List(target(a, env)), target(c.value, env), 1))
-      case Type.Continuation(a, c, _, _, _) => L.ValueType.Boxed(function(List(target(a, env)), target(c.value, env)))
       case Type.FixedFunction(a, c, _, _, _) => L.ValueType.Boxed(function(List(target(a, env)), target(c.value, env)))
       case Type.Capability(r) => L.ValueType.Boxed(env.caps.getOrElse(r, throw Diagnostic("Unbound Lifted capability " + r)).block.tpe)
       case Type.AbstractResult(Syntax.ComputationForm.Variable(n)) =>

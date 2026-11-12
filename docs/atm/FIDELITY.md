@@ -161,8 +161,8 @@ regression check, not a proof that the implementation has no bugs.
 | Native block contextual specialization | Removed in full; explicit quantified helper replaces it. |
 | `handlerResultValue` / `projectedValue`, and default operation `C => C` | Extra, partial annotation generation. Candidates still undergo full handler/clause checks; there is no retry under a weaker annotation. Retained for general surface convenience. The reusable Fig. 1 supplies these annotations explicitly. |
 | `closeLet` refinement closing | Extra annotation generation, followed by escape and subtype checks. Retained and described above; not a printed inference rule. |
-| `checkTermInMode` for ordinary handler returns | Explicit synthesis/subsumption reconciliation of the printed mode mismatch. Retained and disclosed below. Fig. 1's generic helper return has a pure expected answer. |
-| Fixed-region contracts and `return effect` | Explicit declarative bridges retained with exact-region/contract checks. `local` syntax is removed. Curried Fig. 1 uses the fixed-region bridge for its returned callback consumer, but does not use `return effect`. |
+| `checkTermInMode` for ordinary handler returns | Removed. Return clauses are checked by `A_HRet` under `pi(C)`, as now printed. |
+| Fixed-region contracts | Explicit declarative arrow retained with exact-region/contract checks; continuations have this type. `local` syntax is removed. Curried Fig. 1 uses it for its returned callback consumer. `return effect` is now only a deprecated synonym of `return`. |
 | Named interfaces, zero arguments, expression sequencing, pairs, plain `fun`, prefixless arguments | General surface elaboration into checked forms. Retained; no example name or constant selects a typing path. |
 | Symbolic-distance ATC inference | Still rejects. Explicit evidence and ATCs must satisfy their kinds, endpoints, depth and answer contracts. No fallback assigns distance zero or discards answer layers. |
 | Scoped capability tails, answer sequences, `repeatable`/`after` bounds | Old prototype forms remain rejected by the checker. |
@@ -210,54 +210,89 @@ checker, not a claim that the paper already infers those annotations. The
 separate return-clause mode bridge below remains relevant, and no mechanized
 soundness theorem for these Scala passes is claimed.
 
-## Handler return mode: an explicit rule reconciliation
+## Handler return clauses
 
-The supplement's `A_HRet` checks the return body under empty inherited mode
-against `C`. Its general `A_SubC` conclusion, however, checks under `pi(C)`.
-For impure `C`, these are different modes. Merely renaming an implementation
-function would not resolve that discrepancy.
-
-The implementation retains empty inherited mode and uses this explicit bridge:
+`A_HRet` checks the return body against `C` with inherited answer `pi(C)`:
 
 ```
-Gamma | delta | rho | empty |- M synthesizes D
-Gamma |- D <: C
-------------------------------------------------  return-clause bridge
-check the return clause against C, retaining M's elaboration
+Gamma, x:T | delta | rho | pi(C) |- M <= C
+------------------------------------------------  A_HRet
+Gamma | delta | rho |- return x => M <= (x:T -> C) + {}
 ```
 
-For `return V`, value checking supplies the expected value type before producing
-the pure computation `D`. This also permits an unannotated lambda in a return
-clause. The final subsumption is checked in the return-clause context, not under
-facts from the handled body's execution path.
+`inferHandler` implements exactly this with `checkTerm`. A pure clause under an
+impure `C` is covered by `A_ReturnF` followed by `A_SubC`; an effectful clause
+may perform operations of enclosing handlers. For `return V`, value checking
+supplies the expected value type, which also permits an unannotated lambda in a
+return clause. Checking happens in the ambient region outside the handled
+delimiter, with the returned-value assumption and outer capabilities only, not
+under facts from the handled body's execution path.
 
-The declarative justification is `T_Sub` after elaboration of `M`; a pure `D`
-can meet an impure `C` only when `S_CPureImpure` establishes the required answer
-subtyping premise. This is a proposed reconciliation of the printed mode rules,
-not a claim that the printed algorithm already contains this bridge. The code
-makes the choice explicit in `checkTermInMode`.
+Earlier versions followed an older printing of `A_HRet` with the empty
+inherited mode. They synthesized a default clause in empty mode and applied
+subsumption, and offered `return effect x => { M }` as a separate opt-in for the
+rule above. Both are gone: `return effect` is parsed as a deprecated synonym of
+`return`. `return-effects.effekt` exercises an outer operation in a plain
+return clause. Regressions reject the wrong answer type and use of the exited
+handler's capability.
 
-The explicit surface form `return effect x => { M }` now opts into checking `M`
-against the known return computation `C` under `pi(C)`. This is a second,
-deliberate declarative `T_HRet` bridge, not the printed `A_HRet` rule. The default
-form remains unchanged. Checking is in the ambient region outside the handled
-delimiter, with the returned-value assumption and outer capabilities only.
-`return-effects.effekt` exercises an outer operation in this clause. Regressions
-reject the wrong answer type and use of the exited handler's capability.
+## Annotated functions and their region
 
-## Explicit fixed-region functions
+`fun (x: T): C { M }` checks `M` against `C` at a fresh body region and takes
+the minimum of the captured requirements as its region, exactly as `A_AbsSyn`
+does for an unannotated result. The resulting typing is an `A_AbsChk`
+derivation whose region annotation is that minimum. Earlier versions pinned
+such a function to the lexical region, so adding a result annotation could make
+a function less general: it could no longer leave the handler in which it was
+defined, be returned from an enclosing function, or call outward from a
+function body. A region is still fixed by an expected arrow, for example
+`val f: ((Unit) => Unit) at {h} = fun (u) { () }`, and recursive definitions
+keep the lexical region because it must be assumed before the body is checked.
 
-`(T) =>[r] C` is an explicit declarative `T_Abs`/`T_App` contract. Ordinary
-`fun` can check against it; `fun (x: T) at [r]: C { ... }` supplies the contract
-inline. `local` is no longer syntax. `FixedFunction`/`FixedLambda` retain the
-exact region and no abstract call evidence. Calls at another region and
-implicit promotion to an ordinary arrow are rejected. Compatible resumptions
-can still be stored under such a contract. The ARM ports retain this behavior.
+## Exact-region arrows: continuations and fixed-region functions
+
+`(T) =>[r] C` is the declarative `T_Abs`/`T_App` arrow: callable at exactly `r`,
+with no abstract call evidence. It is the surface form of the paper's
+continuation arrow, and `A_HOp` binds the continuation at this type; there is
+no separate continuation type and no coercion between two exact-region arrows.
+Ordinary `fun` can check against it; `fun (x: T) at [r]: C { ... }` supplies the
+contract inline. `local` is no longer syntax. Calls at another region and
+implicit promotion to an ordinary arrow are rejected.
+
+This is more permissive than the printed algorithm in one respect. The paper
+relates the continuation arrow to no other type, so a clause that passes or
+returns its continuation is rejected there. Here exact-region arrows have the
+structural subtyping of `S_Fun` at a fixed region, so a continuation can be
+stored or returned at its own type. The ARM ports retain this behavior.
 
 Returned fixed arrows and evidence kinds may refer to regions already in
 scope, including explicit region parameters. They cannot refer to an ordinary
 arrow's fresh caller. See [CALLER-INDEXED.md](CALLER-INDEXED.md) for the
 minimum-requirement arrow, ATC extension, and migration examples.
+
+## Strict mode: the printed algorithm without inserted annotations
+
+`Checker.checkStrict` (`--check-strict`, `--check-strict-json`) disables every
+place where the default checker writes an annotation on the user's behalf or
+types a term the printed rules do not:
+
+| Default behavior | Strict mode |
+| --- | --- |
+| `closeLet` inserts an existentially closed annotation when the body's type mentions the let-bound variable | rejected, as by the side condition of `A_Let`/`A_LetF` |
+| A handler in synthesis position gets a proposed answer type (`handlerResultValue`) | rejected: `A_Handle` is a checking rule |
+| An operation clause without answer types defaults to `C => C` | rejected |
+| An operation with an explicit ATC is typed without an inherited answer, giving an impure type under the empty mode | rejected: `pi(C) = Omega` |
+
+Explicit kind, evidence and ATC syntax, fixed-region functions and the other
+surface forms are unaffected; strict mode is about inserted annotations, not
+about the source language.
+
+On the 89 files under `examples/atm` (2026-11-13), default mode accepts 64 and
+rejects 25. Strict mode accepts 30 of the 64. Of the 34 it rejects, 31 need
+`closeLet`, 2 need a default clause answer and 1 needs a proposed handler
+answer. All 31 accepted ARM ports are among those that need `closeLet`: as
+written, none of them is accepted by the printed `A_Let` side condition, and
+each would need explicit closing annotations.
 
 ## Unresolved fidelity and coverage gaps
 
@@ -265,8 +300,8 @@ These omissions are not defended as better algorithms, and are not fixed by the
 repairs above:
 
 1. **Definition 17 is not implemented literally.** Core annotations still use
-   the algorithmic `Function`, `Continuation` and `CapabilityPoly` constructors,
-   alongside the explicit fixed-region `FixedFunction` extension.
+   the algorithmic `Function` and `CapabilityPoly` constructors, alongside
+   `FixedFunction` for continuations and explicit fixed-region functions.
    Function nodes retain elaborated caller region/distance binders; ordinary
    source types have no caller binder. Explicit ATC telescopes remain an
    extension, and types are not

@@ -7,7 +7,7 @@ def main(): Bool = {
       def tick(arg: Unit): Unit / (Int / (Int => Bool) => Int / (Int => Bool)) = {
         resume()
       }
-      return effect x => {
+      return x => {
         outer.ask()
       }
     }

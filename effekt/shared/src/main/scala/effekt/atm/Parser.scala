@@ -932,9 +932,11 @@ object Parser {
           if missing.nonEmpty then fail(s"Missing operations in interface ${i.name}: ${missing.toList.sorted.mkString(", ")}")
         }
         val (returned, onReturn) = if accept("return") then {
-          val explicit = accept("effect")
+          // `return effect x => M` is a deprecated synonym: every return clause
+          // is checked by A_HRet with inherited answer type pi(C).
+          accept("effect")
           val name = identifier(); expect("=>"); val body = term()
-          (name, if explicit then Term.ExplicitReturn(body) else body)
+          (name, body)
         } else {
           val name = s"returned#${tokens(position).offset}"
           (name, Term.Return(Value.Variable(name)))

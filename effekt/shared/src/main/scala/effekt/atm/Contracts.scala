@@ -28,7 +28,6 @@ object Contracts {
     case Type.Refined(_, b, _) => b
     case Type.Function(a, r, cs, scope, _, caller) => Type.Function(a, r, cs, scope, caller = caller)
     case Type.FixedFunction(a, r, cs, scope, _) => Type.FixedFunction(a, r, cs, scope)
-    case Type.Continuation(a, r, region, cs, _) => Type.Continuation(a, r, region, cs)
     case other => other
   })
   def base(t: Type): Type = t match {
@@ -61,7 +60,6 @@ object Contracts {
     case Type.Refined(n, b, p) => free(b) ++ (Logic.variables(p) - n)
     case Type.Function(a, r, _, _, name, _) => free(a) ++ (free(r) -- name)
     case Type.FixedFunction(a, r, _, _, name) => free(a) ++ (free(r) -- name)
-    case Type.Continuation(a, r, _, _, name) => free(a) ++ (free(r) -- name)
     case Type.AbstractResult(f) => free(Annotations.abstractComputation(f))
     case Type.KindPoly(_, _, b) => free(b)
     case Type.TypePoly(_, b) => free(b)
@@ -164,7 +162,6 @@ object Contracts {
       case Term.Return(v) => value(v)
       case Term.Assert(v) => found = true; value(v)
       case Term.Ascribe(b, c) => comp(c); term(b)
-      case Term.ExplicitReturn(b) => term(b)
       case Term.LetRec(_, _, a, r, d, b, _, _) => ty(a); comp(r); term(d); term(b)
       case Term.Let(_, a, b) => term(a); term(b)
       case Term.Apply(f, a) => value(f); value(a)

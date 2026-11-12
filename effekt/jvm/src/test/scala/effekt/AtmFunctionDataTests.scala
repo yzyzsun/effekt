@@ -46,7 +46,7 @@ class AtmFunctionDataTests extends munit.FunSuite {
     }""")
     assert(result.isLeft)
     assertEquals(result.swap.toOption.get.kind, DiagnosticKind.TypeError)
-    assertEquals(result.swap.toOption.get.message, "A_KApp: continuation application requires exactly its ambient region")
+    assertEquals(result.swap.toOption.get.message, "A_KApp: an exact-region arrow (a continuation or a fixed-region function) must be applied at exactly its declared region")
   }
 
   test("refined scalar fields are enforced without any use-site refinements") {

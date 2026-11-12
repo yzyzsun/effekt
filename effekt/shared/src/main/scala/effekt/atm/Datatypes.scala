@@ -69,7 +69,7 @@ object Datatypes {
   def equalitySupported(t: Type, ds: List[DataDeclaration], seen: Set[String] = Set.empty): Boolean = Contracts.base(t) match {
     case Type.Data(n) if !seen(n) => ds.find(_.name == n).get.constructors.forall(_.fields.forall(f => equalitySupported(f._2, ds, seen + n)))
     case Type.Pair(a,b) => equalitySupported(a, ds, seen) && equalitySupported(b, ds, seen)
-    case _: Type.Function | _: Type.FixedFunction | _: Type.Continuation => false
+    case _: Type.Function | _: Type.FixedFunction => false
     case _ => true
   }
   def expression(name: String, args: List[Logic.Expr]): Logic.Expr = Logic.Expr.App("constructor:" + name, args)

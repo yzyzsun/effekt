@@ -67,7 +67,7 @@ object Lowering {
         case _: Type.Data => "println(\"<data>\")"
         case _: Type.Capability => "println(\"<capability>\")"
         case _: Type.Variable | _: Type.Refined => throw Diagnostic("A closed program has an unprintable result type")
-        case _: Type.KindPoly | _: Type.FixedFunction | _: Type.Continuation | _: Type.Function | _: Type.CapabilityPoly | _: Type.EffectPoly | _: Type.TypePoly | _: Type.PredicatePoly => "println(\"<function>\")"
+        case _: Type.KindPoly | _: Type.FixedFunction | _: Type.Function | _: Type.CapabilityPoly | _: Type.EffectPoly | _: Type.TypePoly | _: Type.PredicatePoly => "println(\"<function>\")"
       }
       s"// Generated from a statically checked ATM source program.\n$integerPrelude\n${declarations.mkString("\n\n")}\n\n" +
         s"def main() = {\n  val atmResult = $body;\n  $printed\n}\n"
@@ -93,8 +93,6 @@ object Lowering {
         if tokens.add(name) then declarations += s"type $target { AtmMake$name() }"
         target
       case Type.FixedFunction(argument, result, captures, _, _) => target(Type.Function(argument, result, captures), env)
-      case Type.Continuation(argument, result, _, captures, _) =>
-        target(Type.Function(argument, result, captures), env)
       case Type.Function(argument, result, captures, _, _, _)  =>
         val cs = (captures.toList.sorted.map(env.caps) :+ "io").distinct.mkString(", ")
         s"(${target(argument, env)}) => (${target(result.value, env)}) at {$cs}"
@@ -110,7 +108,6 @@ object Lowering {
     private def typeCaptures(tpe: Type): Set[String] = tpe match {
       case Type.Function(_, _, cs, _, _, _) => cs
       case Type.FixedFunction(_, _, cs, _, _) => cs
-      case Type.Continuation(_, _, _, cs, _) => cs
       case Type.CapabilityPoly(_, _, _, cs, _, obligations) => cs
       case Type.EffectPoly(_, b, _) => typeCaptures(b)
       case Type.TypePoly(_, b) => typeCaptures(b)
@@ -225,8 +222,6 @@ object Lowering {
       else (from, to) match {
         case (Type.FixedFunction(a, r, cs, region, p), Type.FixedFunction(b, s, ds, target, q)) =>
           coerce(code, Type.Function(a, r, cs, region, p), Type.Function(b, s, ds, target, q), env)
-        case (Type.Continuation(a, r, region, cs, p), Type.FixedFunction(b, s, ds, target, q)) =>
-          coerce(code, Type.Function(a, r, cs, Some(region), p), Type.Function(b, s, ds, target, q), env)
         case (Type.Function(a, r, _, _, _, _) , Type.Function(b, s, cs, _, _, _) ) =>
           val original = fresh("Original")
           val arg = fresh("AdapterArg")
@@ -282,7 +277,6 @@ object Lowering {
       case Term.Assert(_) => "()"
       case Term.Ascribe(_, _) => term(t.children.head, env)
       case _: Term.InferredHandle => throw Diagnostic("Unresolved handler result annotation")
-      case _: Term.ExplicitReturn => throw Diagnostic("Unresolved explicit return clause")
       case Term.LetRec(name, parameter, _, _, _, _, _, _) =>
         val function = fresh("Recursive")
         val argument = fresh("Arg")
@@ -305,7 +299,6 @@ object Lowering {
         val parameter = t.values.head.tpe match {
           case Type.Function(p, _, _, _, _, _) => p
           case Type.FixedFunction(p, _, _, _, _) => p
-          case Type.Continuation(p, _, _, _, _) => p
           case _ => throw Diagnostic("Invalid elaborated application")
         }
         val argument = coerce(value(t.values(1), env), t.values(1).tpe, parameter, env)

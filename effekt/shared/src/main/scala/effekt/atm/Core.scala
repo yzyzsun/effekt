@@ -107,7 +107,6 @@ object Core {
           term(t.children.head, r), ret, term(t.children(1), region), t.operations.map(o =>
             Operation(o.source.signature, o.source.parameter, o.source.continuation, term(o.body, region))))
         case _: S.InferredHandle => throw Diagnostic("Core: unresolved handler result annotation")
-        case _: S.ExplicitReturn => throw Diagnostic("Core: unresolved explicit return clause")
         case _: S.AnnotatedPerform | _: S.SingleAnnotatedPerform => throw Diagnostic("Core: unresolved operation annotation")
         case _: S.Ascribe | _: S.TypeAlias | _: S.AnnotationAlias => Node.Ascribe(term(t.children.head, region))
       }
@@ -309,8 +308,7 @@ object Core {
               }
               require(TypeEquality.same(Contracts.erase(t.tpe.value), Contracts.erase(result.value)),
                 "function application has an incorrect result type")
-            case Type.Continuation(_, _, target, _, _) => require(evs.isEmpty && contexts.isEmpty && region == target, "continuation used outside its region")
-            case Type.FixedFunction(_, _, _, Some(target), _) => require(evs.isEmpty && contexts.isEmpty && region == target, "local function used outside its region")
+            case Type.FixedFunction(_, _, _, Some(target), _) => require(evs.isEmpty && contexts.isEmpty && region == target, "exact-region arrow used outside its region")
             case _ => throw Diagnostic("Core: invalid function application")
           }
         case Node.Perform(receiver, operation, a, ev, typing) =>
@@ -350,7 +348,7 @@ object Core {
           term(body, bs.updated(edge.name, edge), rs + r, r, vs, cs.updated(r, ops.map(_.signature)), ks)
           term(ret, bs, rs, region, vs.updated(returned, body.tpe.value), cs, ks)
           ops.foreach { o =>
-            val k = Type.Continuation(o.signature.result, o.signature.initialAnswer, region, Set.empty, o.signature.returned)
+            val k = Type.FixedFunction(o.signature.result, o.signature.initialAnswer, Set.empty, Some(region), o.signature.returned)
             term(o.body, bs, rs, region, vs.updated(o.parameter, o.signature.argument).updated(o.continuation, k), cs, ks)
           }
       }

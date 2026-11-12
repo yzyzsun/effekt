@@ -83,7 +83,6 @@ object Surface {
     case Term.Ascribe(b, _) => free(b)
     case Term.TypeAlias(_, _, b) => free(b)
     case Term.AnnotationAlias(_, _, b) => free(b)
-    case Term.ExplicitReturn(b) => free(b)
     case Term.If(c, a, b) => free(c) ++ free(a) ++ free(b)
     case Term.Assert(c) => free(c)
     case Term.Match(v, cs) => free(v) ++ cs.flatMap(c => free(c.body) -- c.parameters)

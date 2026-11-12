@@ -956,3 +956,45 @@ Chez execution. `git diff --check` passed. These are implementation checks,
 not a mechanized compiler-correctness theorem.
 
 Final log: `/private/tmp/effekt-a-abs-final.log`.
+
+## 2026-11-13: return clauses, annotated-function regions, one exact-region arrow, strict mode
+
+Four checker changes, described in [FIDELITY.md](FIDELITY.md):
+
+- Every return clause is checked by `A_HRet` under `pi(C)`; `return effect` is a
+  deprecated synonym and `Term.ExplicitReturn` is removed.
+- A result-annotated function takes the minimum captured region instead of the
+  lexical region. Recursive definitions are unchanged.
+- `Type.Continuation` is removed; `A_HOp` binds the continuation at
+  `Type.FixedFunction`, and the one-way coercion between the two is gone.
+- `Checker.checkStrict` / `--check-strict` rejects every inserted annotation and
+  an explicit-ATC operation without an inherited answer.
+
+Regressions changed because they asserted the previous behavior:
+`AtmAbstractionTests` (a nested annotated lambda is now accepted at `top`),
+`AtmTests` (an effectful plain return clause is accepted; the p33 meet example
+and `evidence-functions.effekt` obtain the handler-region function from an
+`at {h}` annotation; the returned-continuation message shows `=>[top]`), and
+`AtmFunctionDataTests` (the `A_KApp` message). New: `AtmStrictTests` and two
+`AtmAbstractionTests` cases.
+
+Validation commands:
+
+```sh
+sbt -batch 'effektJVM/testOnly effekt.Atm*Tests' \
+  'effektJVM/testOnly effekt.core.* effekt.lifted.mono.MonomorphizationTests' \
+  'effektJS/compile' \
+  'effektJVM/runMain effekt.atm.Main --run examples/atm/file-reusable.effekt' \
+  'effektJVM/runMain effekt.atm.Main --run examples/atm/file-polymorphic.effekt'
+```
+
+Results: **500 ATM tests passed** (495 before), **35 Core/monomorphization
+tests passed**, **Scala.js compilation passed**, and both file examples
+returned **42**. `return-effects`, `evidence-functions` and `stored-resumption`
+return `false`, `42` and `42`. `git diff --check` passed.
+
+Strict mode over the 89 files under `examples/atm`: default accepts 64; strict
+accepts 30 of them. The 34 others need an inserted annotation (31 `closeLet`,
+2 default clause answers, 1 proposed handler answer); the 31 are exactly the
+accepted ARM ports. The JSON snapshots under `results/` predate these changes
+and were not regenerated.
