@@ -44,7 +44,7 @@ the ATC hole obligation, remains the responsibility of `Checker`. This validator
 is an implementation invariant, not an independent complete declarative checker.
 Core also still uses the algorithmic function/continuation type constructors
 alongside the explicit `FixedFunction` extension;
-caller-indexed families are now retained, while expansion into a separate full
+ordinary source codomains remain independent of the fresh caller. Expansion into a separate full
 declarative type language remains outstanding. See
 [FIDELITY.md](FIDELITY.md) for the precise boundary.
 
@@ -158,10 +158,11 @@ Chez `equal?` on opaque constructor records. Source matches also lower directly
 to Lifted `Match`, and function-valued constructor fields use boxed functions.
 Logical measures are erased. Equality of data containing functions is rejected. See [ARTIFACT-STATUS.md](ARTIFACT-STATUS.md).
 
-Caller-indexed `Function` types now retain the result family and the declared
-call-ATC telescope. Core checks opened results and call-context depth certificates;
-Lifted erases ATCs while retaining the one call-evidence argument. The reusable
-Curried Fig. 1 uses that path for its ordinary helper and ATC-polymorphic
-callbacks, plus the fixed-region declarative path for the returned callback
-consumer. Ordinary domains are not opened at calls. See
-[CALLER-INDEXED.md](CALLER-INDEXED.md) for the separate rule boundaries.
+Ordinary `Function` types retain the source codomain and minimum call
+requirement, with no caller binder. Core lambda nodes retain the elaborated
+caller/evidence abstraction and independently reject a fresh caller in the
+codomain. Explicit call-ATC metadata remains separate from ordinary `A_Abs`;
+Core checks its depth certificates and Lifted erases ATCs while retaining the
+call-evidence argument. Curried Fig. 1 explicitly quantifies its region before
+the ordinary arrow and returns a fixed-region consumer at that parameter.
+See [CALLER-INDEXED.md](CALLER-INDEXED.md) for the rule boundaries.

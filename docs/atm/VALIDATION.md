@@ -1,6 +1,8 @@
 # ATM validation record
 
-Latest implementation validation: **2026-11-09** (operation annotation syntax below).
+The **2026-11-13 A_Abs correction** at the end of this file supersedes the
+November 12 caller-dependent result claims. Earlier results below are historical
+checkpoints, including the **2026-11-09** operation-annotation validation.
 The preceding **2026-11-06** validation used Effekt v0.3.0
 (`cd18ad896b9f1c856a9d6002fd0a5733e5cb9a15`) and its pinned Kiama revision
 `ab6aef78fc4ce99a9ad2db8555718d00b03f7b8a`, using Chez Scheme 10.4.1.
@@ -719,7 +721,8 @@ These checks do not constitute a mechanized compiler correspondence proof.
 
 ## 2026-11-12: caller-indexed functions and removal of `local`
 
-Historical checkpoint, superseded by the domain-removal entry below. Ordinary
+Historical checkpoint, superseded by the domain-removal entry below and the
+November 13 removal of caller-dependent source results. Ordinary
 function types retained caller-indexed families. This checkpoint included the
 approved explicit ATC abstraction and an additional caller-dependent domain
 extension; the latter has since been removed. Current boundaries are documented in
@@ -762,7 +765,8 @@ new extension.
 ## 2026-11-12: remove callback-domain extension; curry Fig. 1
 
 Historical checkpoint: its `here` spelling is superseded by the named-caller
-entry below. This supersedes the preceding caller-domain checkpoint. Ordinary function
+entry below, and its caller-dependent result types by the November 13 correction.
+This supersedes the preceding caller-domain checkpoint. Ordinary function
 arguments are resolved before the implicit caller and call-ATC binders, and are
 not opened or instantiated by application. Subtyping, equality, free-region
 analysis, and Core annotation validation use the same scope boundary. A call-ATC
@@ -812,6 +816,9 @@ Full log: `/private/tmp/effekt-domain-complete.log`; initial focused log:
 `/private/tmp/effekt-domain-targeted.log`.
 
 ## 2026-11-12: name caller-region binders; remove `here`
+
+Historical checkpoint. Its caller-dependent result types and Fig. 1 contract
+are superseded by the November 13 A_Abs correction below.
 
 Ordinary functions and arrow types can name the existing implicit caller with
 `fun (x: T)[R: Reg]`, `def f(x: T)[R: Reg]`, and `(T)[R: Reg] => C`.
@@ -906,3 +913,46 @@ sbt -batch \
 
 Logs: `/private/tmp/effekt-named-capabilities-final.log` and
 `/private/tmp/effekt-named-capabilities-full.log` (CLI runs).
+
+## 2026-11-13: restore A_Abs source arrows and codomain freshness
+
+Ordinary `Type.Function` now stores `(x: T) ->rho C` without an implicit caller
+binder. `rho` is the minimum call requirement. The elaboration still binds the
+actual caller, distance, and evidence in `FunctionAbstraction`; application
+reconstructs `caller <= rho`. `A_AbsSyn` rejects a fresh body region in `C`;
+checking rejects caller-dependent result annotations and Core independently
+checks the same freshness condition. Free-region analysis and type equality
+no longer hide a codomain dependency behind caller metadata.
+
+The November 12 result-family claim was not faithful to Definition 17. Those
+positive fixtures are now rejection regressions, including evidence kinds,
+returned fixed arrows, recursive annotations, and nested results. The new
+`AtmAbstractionTests` also checks calls at distances 0, 1, and 2 with the same
+source arrow, the meet of captured requirements, stable expected and inferred
+nested arrows, explicit region quantification, and forged Core certificates.
+A shadowing explicit region binder in a returned type remains valid.
+
+The reusable Fig. 1 now explicitly quantifies `[R: Reg, C: Cty]` before its
+ordinary descriptor parameter and calls `file[top][Int]` and `file[S][A]`.
+Its ordinary codomain depends on that explicit `R`, not the fresh caller.
+It still contains one checked helper/handler body. Explicit call-ATC abstraction
+and fixed-region contracts remain separate extensions; the paper is unchanged.
+
+Validation commands:
+
+```sh
+sbt -batch 'effektJVM/testOnly effekt.Atm*Tests' \
+  'effektJVM/testOnly effekt.core.* effekt.lifted.mono.MonomorphizationTests' \
+  'effektJS/compile' \
+  'effektJVM/runMain effekt.atm.Main --run examples/atm/file-reusable.effekt' \
+  'effektJVM/runMain effekt.atm.Main --run examples/atm/file-polymorphic.effekt'
+```
+
+Results: **495 ATM tests passed**, including all ten new abstraction regressions;
+**35 Core/monomorphization tests passed**; **Scala.js compilation passed**.
+Both file examples returned **42** through the CLI. Executable abstraction tests
+also compare the reference interpreter with optimized and unoptimized direct
+Chez execution. `git diff --check` passed. These are implementation checks,
+not a mechanized compiler-correctness theorem.
+
+Final log: `/private/tmp/effekt-a-abs-final.log`.

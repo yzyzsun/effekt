@@ -48,7 +48,9 @@ object TypeEquality {
         annotations = bind(caller2.map(_.distance), right.annotations))
       val ps = caller.toList.flatMap(_.contexts); val qs = caller2.toList.flatMap(_.contexts)
       def telescope(ps: List[(String, Annotations.Kind)], qs: List[(String, Annotations.Kind)], l: Binders, r: Binders): Boolean = (ps, qs) match {
-        case (Nil, Nil) => computation(result, result2, l, r)
+        // The caller region binds call-ATC kinds only, never the source C.
+        case (Nil, Nil) => computation(result, result2,
+          l.copy(capabilities = left.capabilities), r.copy(capabilities = right.capabilities))
         case ((n, k) :: ps, (m, j) :: qs) => kind(k, j, l, r) && telescope(ps, qs, bindKind(n, k, l), bindKind(m, j, r))
         case _ => false
       }

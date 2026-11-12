@@ -4,8 +4,9 @@ import Syntax.*
 import Annotations.{Kind, Mapper}
 import Evidence.Distance
 
-/** The caller-indexed codomain in the paper's function-type translation.
- * Opening is type substitution, never rechecking or specializing a body.
+/** Opening temporary annotation binders and explicit call-ATC metadata.
+ * Ordinary source functions have no caller binder and keep the same codomain
+ * at every call. Their implicit telescope lives in FunctionAbstraction only.
  */
 object FunctionTypes {
   def opening(caller: Option[Caller], callRegion: String, callDistance: Distance): Mapper = new Mapper {

@@ -183,11 +183,11 @@ class AtmExplicitAnnotationTests extends munit.FunSuite {
       }
     }""", "local handler region")
   }
-  test("implicit functions retain a returned evidence kind indexed by the caller") {
-    run("""def main(): Unit = {
+  test("implicit functions reject a returned evidence kind mentioning the caller") {
+    rejected("""def main(): Unit = {
       def make(u: Unit)[R: Reg] = { typefun [E: Ev(R, 0, top)] { () } }
       ()
-    }""", "unit")
+    }""", "alpha notin fv(C)")
   }
   test("a context application preserves the operation's answer contract") {
     rejected(source(1).replace("K[Int] => K[Bool]", "K[Bool] => K[Bool]"), "Expected")

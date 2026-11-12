@@ -105,7 +105,8 @@ behavior, not a guarantee from the current checker. Symbolic-distance ATC
 inference is partial in the supplied paper as well; its rejection is not fixed
 by treating the unknown distance as zero.
 
-Caller-indexed returned function and evidence types are now supported. Explicit
+Returned function and evidence types may mention explicitly quantified regions;
+they cannot mention an ordinary function's fresh caller (`alpha notin fv(C)`). Explicit
 call-ATC abstraction makes the annotated outer-call example caller-polymorphic;
 its ATC is supplied at each use. General native block inference and polymorphic
 operation signatures remain open. See [CALLER-INDEXED.md](CALLER-INDEXED.md).

@@ -27,7 +27,7 @@ class AtmNamedCapabilityTests extends munit.FunSuite {
   test("a named interface supplies callback contracts from the consumer result") {
     run(use + s"def main(): Int = use($callback)")
   }
-  test("ordinary caller-indexed consumers also resolve named capability domains") {
+  test("ordinary minimum-region consumers also resolve named capability domains") {
     run((use + s"def main(): Int = use($callback)").replace(" at [top]", ""))
   }
   test("recursive consumers resolve their callback domain before checking the body") {
@@ -41,10 +41,10 @@ class AtmNamedCapabilityTests extends munit.FunSuite {
       consume(fun (a: Ask) { a })
     }""")
   }
-  test("expected domain contracts do not import the consumer's caller-dependent result") {
+  test("expected domain contracts do not import the consumer's function result") {
     run(ask + """def main(): Int = {
-      val consume: ((c: { def ask(): Int / (Bool => Bool); }) => cap(c))[R: Reg] => ((Unit) =>[R] Int) =
-        fun (body: (c: Ask) => cap(c))[S: Reg]: ((Unit) =>[S] Int) { fun () at [S]: Int { 42 } };
+      val consume: ((c: { def ask(): Int / (Bool => Bool); }) => cap(c)) => ((Unit) =>[top] Int) =
+        fun (body: (c: Ask) => cap(c)): ((Unit) =>[top] Int) { fun () at [top]: Int { 42 } };
       consume(fun (a: Ask) { a })()
     }""")
   }
@@ -103,8 +103,8 @@ class AtmNamedCapabilityTests extends munit.FunSuite {
   }
   test("nested type binders do not trigger interface answer elaboration") {
     run(ask + """def main(): Int = {
-      val consume = fun (f: forall type Ask. ((Ask) => Ask))[R: Reg]: ((Unit) =>[R] Int) {
-        fun () at [R]: Int { 42 }
+      val consume = fun (f: forall type Ask. ((Ask) => Ask)): ((Unit) =>[top] Int) {
+        fun () at [top]: Int { 42 }
       };
       consume(fun [A](x: A): A { x })()
     }""")

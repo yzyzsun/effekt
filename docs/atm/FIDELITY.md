@@ -120,31 +120,32 @@ or establish an operational correspondence theorem for the compiler.
 
 ## Reusable helpers: explicit polymorphism
 
-[`file-reusable.effekt`](../../examples/atm/file-reusable.effekt) now uses an
-ordinary caller-indexed `file[C: Cty]` helper, curried as
-`file[C](descriptor)(callback)`, checked once and called at two computation
-types. Its ordinary domain is `Int`; its result is a fixed-region callback
-consumer tied to that call region. Its callbacks explicitly quantify over ATCs whose depths
-depend on their callers. The helper supplies a hole ATC when it invokes its
-callback at the newly installed handler. `interface File`, `read(): Int`, and
+[`file-reusable.effekt`](../../examples/atm/file-reusable.effekt) uses an
+explicitly region/computation-polymorphic `file[R: Reg, C: Cty]` helper,
+curried as `file[R][C](descriptor)(callback)`. Its ordinary domain is `Int`;
+its result is a fixed-region callback consumer at the explicitly supplied `R`.
+The fresh caller of the ordinary arrow cannot occur in this result.
+Callbacks explicitly quantify over ATCs; the helper supplies `[]` when calling
+at the newly installed handler. `interface File`, `read(): Int`, and
 `close(): Unit` remain; the mock-backed program returns 42.
 
-There is no stored source-body scheme, per-call rechecking, native-block
-specialization, or example-name branch. `AtmExplicitFileTests` checks the
-single Core helper/handler body, distinct computation instances, executable
-results, and rejection of invalid unused definitions and invalid calls.
-Callback operation certificates now remain symbolic in the definition.
+There is one checked helper/handler body, no per-call source rechecking or
+specialization. `AtmExplicitFileTests` checks distinct computation instances,
+runtime arguments, and invalid unused definitions and calls.
 
-[CALLER-INDEXED.md](CALLER-INDEXED.md) gives the type translation and exact
-extension boundary: ordinary caller-indexed results follow Definition 17, explicit
-call-ATC abstraction goes beyond the printed algorithm's incompleteness
-boundary, and fixed-region contracts use a declarative checking bridge.
-Caller-dependent ordinary callback domains have been removed. The implicit
-caller and call-ATC telescope scope over results, not ordinary domains.
-Post-parameter `[R: Reg]` names the existing implicit caller variable; it is
-not an additional type abstraction or a runtime region allocation. Handler
-labels and `top` name existing regions. The `here` keyword has been removed. The
-unannotated symbolic-distance inference failure is retained. The paper and its proof are unchanged.
+The November 12 claim that ordinary caller-indexed result families implement
+Definition 17 was incorrect and is superseded by the November 13 repair.
+`A_Abs` retains `(x: T) ->rho C` with a minimum call requirement and a codomain
+independent of the fresh caller. Its region/distance/evidence quantifiers belong
+to elaboration. Synthesis enforces `alpha notin fv(C)` and checking rejects
+caller-dependent result annotations. [CALLER-INDEXED.md](CALLER-INDEXED.md)
+explains the distinction and the explicit migration of Fig. 1.
+
+Explicit call-ATC abstraction remains beyond the printed algorithm's
+incompleteness boundary. Fixed-region contracts remain a declarative checking
+bridge. Post-parameter region names are body aliases, with no permission to
+bind the source result. Pre-parameter region quantification is explicit and
+can occur in that result. The paper and its proof are unchanged.
 
 ## Audit of other additional mechanisms (2026-11-12)
 
@@ -253,10 +254,10 @@ exact region and no abstract call evidence. Calls at another region and
 implicit promotion to an ordinary arrow are rejected. Compatible resumptions
 can still be stored under such a contract. The ARM ports retain this behavior.
 
-Caller-indexed returned fixed arrows and evidence kinds are now supported;
-they are opened at the actual caller, never relabeled as the required scope.
-See [CALLER-INDEXED.md](CALLER-INDEXED.md) for the ordinary function family,
-ATC extension, and migration examples.
+Returned fixed arrows and evidence kinds may refer to regions already in
+scope, including explicit region parameters. They cannot refer to an ordinary
+arrow's fresh caller. See [CALLER-INDEXED.md](CALLER-INDEXED.md) for the
+minimum-requirement arrow, ATC extension, and migration examples.
 
 ## Unresolved fidelity and coverage gaps
 
@@ -266,8 +267,9 @@ repairs above:
 1. **Definition 17 is not implemented literally.** Core annotations still use
    the algorithmic `Function`, `Continuation` and `CapabilityPoly` constructors,
    alongside the explicit fixed-region `FixedFunction` extension.
-   Function nodes and types retain caller region/distance binders and explicit
-   ATC telescopes, but types are not
+   Function nodes retain elaborated caller region/distance binders; ordinary
+   source types have no caller binder. Explicit ATC telescopes remain an
+   extension, and types are not
    expanded into a separate declarative language containing the full
    `forall r:Reg. forall d:Dist. forall e:Ev[r <=_d rho]. ...` telescope.
    Capability abstraction also remains a surface convenience that binds both

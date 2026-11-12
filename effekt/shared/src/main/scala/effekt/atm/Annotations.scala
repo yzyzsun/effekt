@@ -199,6 +199,10 @@ object Annotations {
         ks = ks.updated(n, k); if k == Kind.Region then rs += n
         try { typ(b); t } finally { ks = savedKinds; rs = savedRegions }
       case Type.Function(a, r, _, scope, _, caller) =>
+        if caller.exists(_.contexts.isEmpty) then
+          throw Diagnostic("Ordinary function types cannot bind a caller region")
+        if caller.exists(c => Annotations.regions(r).contains(c.region)) then
+          throw Diagnostic("A_Abs: the fresh body region must not occur free in the codomain (alpha notin fv(C))")
         scope.foreach(region)
         typ(a)
         val savedKinds = ks; val savedRegions = rs
@@ -206,6 +210,7 @@ object Annotations {
           rs += c.region; ks = ks.updated(c.region, Kind.Region).updated(c.distance, Kind.Distance)
           c.contexts.foreach { (n, k) => kind(k); ks = ks.updated(n, k) }
         }
+        rs = savedRegions
         try { computation(r); t } finally { ks = savedKinds; rs = savedRegions }
       case Type.CapabilityPoly(n, ops, b, _, scope, obligations) =>
         val saved = rs; rs += n
@@ -238,8 +243,9 @@ object Annotations {
         case Type.Function(a, r, _, scope, _, caller) =>
           scope.foreach(region); typ(a)
           val before = result; result = Set.empty
-          caller.foreach(_.contexts.foreach((_, k) => kind(k))); computation(r)
-          result = before ++ (result -- caller.map(_.region)); t
+          caller.foreach(_.contexts.foreach((_, k) => kind(k)))
+          result = before ++ (result -- caller.map(_.region))
+          computation(r); t
         case Type.FixedFunction(a, r, _, scope, _) => typ(a); computation(r); scope.foreach(region); t
         case Type.Continuation(a, r, scope, _, _) => typ(a); computation(r); region(scope); t
         case Type.CapabilityPoly(n, ops, b, _, scope, obligations) =>

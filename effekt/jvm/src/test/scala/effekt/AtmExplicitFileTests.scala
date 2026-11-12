@@ -44,7 +44,7 @@ class AtmExplicitFileTests extends munit.FunSuite {
     })
   }
   // Keep the entire definition but replace all uses with a pure result.
-  private def unused(s: String): String = s.take(s.indexOf("  file[Int](7)(")) + "  0\n}\n"
+  private def unused(s: String): String = s.take(s.indexOf("  file[top][Int](7)(")) + "  0\n}\n"
 
   test("explicit reusable Fig. 1 has one polymorphic helper body and two instantiations") {
     assert(source.contains("(f: File) =>"))
@@ -55,13 +55,15 @@ class AtmExplicitFileTests extends munit.FunSuite {
     val helpers = all.collect { case Core.Term(Core.Node.Let("file", binding, _), _, _) => binding }
     assertEquals(helpers.size, 1)
     assert(helpers.head.tpe.value match {
-      case Type.KindPoly(_, Annotations.Kind.Computation, f: Type.Function) =>
+      case Type.KindPoly(_, Annotations.Kind.Region, Type.KindPoly(_, Annotations.Kind.Computation, f: Type.Function)) =>
         f.argument == Type.Int && f.result.value.isInstanceOf[Type.FixedFunction]
       case _ => false
     })
     helpers.head.tpe.value match {
-      case Type.KindPoly(answer, Annotations.Kind.Computation, f: Type.Function) =>
+      case Type.KindPoly(region, Annotations.Kind.Region, Type.KindPoly(answer, Annotations.Kind.Computation, f: Type.Function)) =>
+        assertEquals(f.caller, None)
         val consumer = f.result.value.asInstanceOf[Type.FixedFunction]
+        assertEquals(consumer.region, Some(region))
         val capability = consumer.argument.asInstanceOf[Type.CapabilityPoly]
         assertEquals(capability.operations.map(_.name), List("close", "read"))
         val expected = Annotations.abstractComputation(ComputationForm.Variable(answer))
@@ -75,7 +77,8 @@ class AtmExplicitFileTests extends munit.FunSuite {
     assert(!terms(helpers.head).exists(_.node.isInstanceOf[Core.Node.Perform]))
     val instantiations = all.collect {
       case Core.Term(Core.Node.Apply(Core.Value(Core.ValueNode.InstantiateKind(
-        Core.Value(Core.ValueNode.Variable("file"), _), Annotations.Argument.Computation(c)), _), _, _, _), _, _) => c
+        Core.Value(Core.ValueNode.InstantiateKind(Core.Value(Core.ValueNode.Variable("file"), _),
+          Annotations.Argument.Region(_)), _), Annotations.Argument.Computation(c)), _), _, _, _), _, _) => c
     }
     assertEquals(instantiations.size, 2)
     assertEquals(instantiations.count(_.effect == Effect.Pure), 1)
@@ -84,13 +87,10 @@ class AtmExplicitFileTests extends munit.FunSuite {
     assertEquals(ops.map(_._1), List(None, None, None, None))
     assertEquals(ops.count(_._2.isInstanceOf[Evidence.AnswerContext.Variable]), 2)
   }
-  test("the former uncurried caller-dependent callback domain is rejected") {
-    val uncurried = unused(source)
-      .replace("(c: Int)[R: Reg] {\n    fun (body:", "(c: Int, body:")
-      .replace(") at [R]: C {", ")[R: Reg]: C {")
-      .replace("\n    }\n  };", "\n  };")
-    Parser.parse(uncurried).fold(e => fail(e.message), identity)
-    reject(uncurried, "Unknown or out-of-scope capability R")
+  test("the former implicit caller-dependent helper is rejected") {
+    val implicitCaller = unused(source)
+      .replace("fun [R: Reg, C: Cty] (c: Int)", "fun [C: Cty] (c: Int)[R: Reg]")
+    reject(implicitCaller, "alpha notin fv(C)")
   }
   test("descriptor values remain runtime arguments") {
     run(source.replace("x + y", "x * 100 + y"), "735")
@@ -128,7 +128,7 @@ class AtmExplicitFileTests extends munit.FunSuite {
     reject(source.replace("Ev(b, 1, S)", "Ev(S, 1, b)"), "Ill-composed region evidence")
   }
   test("an incorrect computation instantiation is rejected") {
-    val s = source.replace("file[A]", "file[Bool]")
+    val s = source.replace("file[S][A]", "file[S][Bool]")
     assert(Parser.parse(s).flatMap(Checker.check).isLeft)
   }
   test("symbolic-distance ATC inference still requires an annotation") {

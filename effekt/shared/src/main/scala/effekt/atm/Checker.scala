@@ -110,7 +110,7 @@ object Checker {
                                    effectBounds: Map[String, EffectBound] = Map.empty,
                                    region: String = Evidence.Top,
                                    // Lexical default for unqualified arrows inside an annotation.
-                                   // Result annotations use the fresh caller; domains use the outer region.
+                                   // Source arrow domains and codomains use lexical region requirements.
                                    annotationDefaultRegion: Option[String] = None,
                                    // Resolved answer used only while elaborating named
                                    // capability contracts in an annotated function domain.
@@ -340,8 +340,10 @@ object Checker {
           inner = inner.withKind(n, id, kind); (id, kind)
         }
         inner = parameter.zip(identity).foldLeft(inner) { case (e, (name, id)) => e.bindIdentity(name, argument, id) }
-        Type.Function(argument, resolve(result, inner), cs.map(env.capability), Some(target), identity,
-          Some(caller.copy(contexts = contexts)))
+        val codomain = resolve(result, inner)
+        requireCallerIndependent(codomain, caller.region, "A_AbsChk")
+        Type.Function(argument, codomain, cs.map(env.capability), Some(target), identity,
+          Option.when(contexts.nonEmpty)(caller.copy(contexts = contexts)))
       case Type.CapabilityPoly(name, operations, body, cs, scope, obligations) =>
         require(scope.isEmpty, "Scoped capability tails are a prototype extension, not part of the paper algorithm", DiagnosticKind.Unsupported)
         val identity = fresh(name)
@@ -736,6 +738,10 @@ object Checker {
       (v.residuals ++ v.children.flatMap(_.residuals) ++ v.body.toList.flatMap(_.residuals))
         .distinct.filterNot(o => v.discharged(o.name)))
 
+    private def requireCallerIndependent(result: Computation, caller: String, rule: String): Unit =
+      require(!Annotations.regions(result).contains(caller),
+        s"$rule: the fresh body region must not occur free in the codomain (alpha notin fv(C))")
+
     private def abstraction(source: Value, parameter: String, argument: Type, result: Option[Computation],
                             body: Term, requiredRegion: Option[String], parameterId: Option[String],
                             env: Environment, resultCaller: Option[Caller] = None, callerName: Option[String] = None): CheckedValue = {
@@ -748,7 +754,13 @@ object Checker {
       val inner = env.copy(region = alpha, annotationDefaultRegion = None,
         kinds = env.kinds.updated(distanceName, Kind.Distance)).withCaller(callerName, alpha).bindIdentity(parameter, domain, id)
       val annotation = result.map(opening.computation)
+      annotation.foreach(requireCallerIndependent(_, alpha, "A_AbsChk"))
       val checked = annotation.fold(infer(body, inner, None))(checkTerm(body, _, inner))
+      // The caller is abstracted in the elaboration, never in the source C.
+      // In checking mode C is already well formed outside the fresh region;
+      // in synthesis this is the explicit A_AbsSyn side condition.
+      requireCallerIndependent(annotation.getOrElse(checked.tpe), alpha,
+        if annotation.isDefined then "A_AbsChk" else "A_AbsSyn")
       val captured = checked.residuals.filter(_.constraint.from == alpha)
       require(!checked.residuals.exists(o => o.constraint.to == alpha && o.constraint.from != alpha),
         "A_Abs: a residual mentions the body region in target position")
@@ -761,13 +773,13 @@ object Checker {
       }.toMap
       val elaborated = Elaboration.substitute(checked, replacements)
       val codomain = annotation.getOrElse(elaborated.tpe)
-      CheckedValue(source, Type.Function(domain, codomain, checked.captures, Some(region), Some(id),
-        Some(Caller(alpha, distanceName))), checked.captures,
+      CheckedValue(source, Type.Function(domain, codomain, checked.captures, Some(region), Some(id)), checked.captures,
         body = Some(elaborated), abstraction = Some(FunctionAbstraction(alpha, call)), discharged = replacements.keySet)
     }
 
     /** Explicit declarative T_Abs/T_App bridge, separate from A_Abs's
-     * region-polymorphic arrow. No symbolic distance is assumed to be zero.
+     * minimum-requirement source arrow and call-evidence elaboration.
+     * No symbolic distance is assumed to be zero.
      */
     private def fixedAbstraction(source: Value, parameter: String, argument: Type,
         result: Option[Computation], body: Term, region: String, id: String, env: Environment): CheckedValue = {
@@ -801,6 +813,7 @@ object Checker {
       }
       inner = inner.bindIdentity(parameter, arg, id)
       val annotation = resolve(result, inner.copy(annotationDefaultRegion = Some(env.region)))
+      requireCallerIndependent(annotation, caller.region, "Call-ATC abstraction")
       val checked = checkTerm(body, annotation, inner)
       require(!checked.residuals.exists(o => o.constraint.from == caller.region),
         "A_Abs: declared call-context requirements do not discharge the body's region obligations")
@@ -1197,7 +1210,8 @@ object Checker {
           val left = p.fold(ar)(Contracts.substitute(ar, _, v))
           val right = q.fold(br)(Contracts.substitute(br, _, v))
           Type.Function(argument, guarded(left, right, guard, join, env.bindIdentity(id, argument, id)),
-            if join then cs ++ ds else cs intersect ds, r, Some(id), Some(caller.copy(contexts = leftParameters)))
+            if join then cs ++ ds else cs intersect ds, r, Some(id),
+            Option.when(leftParameters.nonEmpty)(caller.copy(contexts = leftParameters)))
         case (Type.TypePoly(n, b), Type.TypePoly(m, c)) =>
           Type.TypePoly(n, guarded(b, Contracts.instantiate(c, m, Type.Variable(n)), guard, join, env))
         case _ => fail(s"Guarded ${if join then "join" else "meet"} is undefined for ${show(a)} and ${show(b)}")

@@ -5,6 +5,11 @@ import Syntax.*
 
 class AtmCallerTests extends munit.FunSuite {
   private def checked(s: String) = Parser.parse(s).flatMap(Checker.check).fold(e => fail(e.message), identity)
+  private def reject(s: String, reason: String = "alpha notin fv(C)"): Unit = {
+    val result = Parser.parse(s).flatMap(Checker.check)
+    assert(result.isLeft, "Accepted a caller-dependent source codomain")
+    assert(result.swap.toOption.get.message.contains(reason), result.toString)
+  }
   private def run(s: String, expected: String): Checker.CheckedProgram = {
     val p = checked(s)
     Core.elaborate(p)
@@ -13,24 +18,24 @@ class AtmCallerTests extends munit.FunSuite {
       assertEquals(DirectBackend.run(p, optimized).fold(fail(_), identity), expected)
     p
   }
-  test("a returned evidence telescope is indexed by the actual caller") {
-    run("""def main(): Int = {
+  test("A_AbsSyn rejects a returned evidence telescope mentioning the caller") {
+    reject("""def main(): Int = {
       val make = fun ()[R: Reg] { fun [E: Ev(R, 0, R)] { 42 } };
       val first = make()[refl];
       try { make()[refl] } with h: Int {
         def unused(): Unit / (Int => Int) = resume(())
         return x => x
       }
-    }""", "42")
+    }""")
   }
-  test("caller binders are alpha-equivalent but free regions remain distinct") {
+  test("caller metadata cannot bind a free region in the source codomain") {
     def f(caller: String, target: String) = Type.Function(Type.Unit,
       Computation(Type.KindPoly("E", Annotations.Kind.Evidence(caller, Evidence.Distance.Numeral(0), target), Type.Int)),
       region = Some(Evidence.Top), caller = Some(Caller(caller, "D")))
-    assert(TypeEquality.same(f("r", "outer"), f("s", "outer")))
+    assert(!TypeEquality.same(f("r", "outer"), f("s", "outer")))
     assert(!TypeEquality.same(f("r", "outer"), f("s", "another")))
     assert(!TypeEquality.same(f("r", "r"), f("s", "r")))
-    assertEquals(Annotations.regions(Computation(f("r", "outer"))), Set("outer"))
+    assertEquals(Annotations.regions(Computation(f("r", "outer"))), Set("r", "outer"))
   }
   test("explicit call ATCs abstract over symbolic call distance") {
     run("""def main(): Bool = {
@@ -46,7 +51,7 @@ class AtmCallerTests extends munit.FunSuite {
     }""", "true")
   }
 
-  test("reusable Fig. 1 with caller-indexed explicit ATC callbacks") {
+  test("reusable Fig. 1 with explicit region and ATC parameters") {
     run(java.nio.file.Files.readString(java.nio.file.Path.of("examples/atm/file-reusable.effekt")), "42")
   }
 
@@ -104,8 +109,8 @@ class AtmCallerTests extends munit.FunSuite {
       assert(Parser.parse(s).isLeft)
     run("def main(): Int = { def local(x: Int): Int = x; local(42) }", "42")
   }
-  test("recursive result families open at each caller") {
-    run("""def main(): Int = {
+  test("recursive annotations cannot bind a caller in their result") {
+    reject("""def main(): Int = {
       def rec make(n: Int)[R: Reg]: forall E: Ev(R, 0, R). (Int) = {
         if (n == 0) { fun [E: Ev(R, 0, R)] { 42 } } else { make(n - 1) }
       }
@@ -113,17 +118,17 @@ class AtmCallerTests extends munit.FunSuite {
         def unused(): Unit / (Int => Int) = resume(())
         return x => x
       }
-    }""", "42")
+    }""")
   }
-  test("nested caller binders remain distinct when their types are returned") {
-    run("""def main(): Int = {
+  test("nested abstractions cannot hide a caller-dependent result") {
+    reject("""def main(): Int = {
       val make = fun ()[R: Reg] { fun ()[R: Reg] { fun [E: Ev(R, 0, R)] { 42 } } };
       val f = make();
       try { f()[refl] } with h: Int {
         def unused(): Unit / (Int => Int) = resume(())
         return x => x
       }
-    }""", "42")
+    }""")
   }
   test("Core rejects a forged call-context argument independently") {
     val p = checked("""def main(): Int = {
@@ -186,7 +191,7 @@ class AtmCallerTests extends munit.FunSuite {
   test("caller names in a forged domain are free and rejected by Core") {
     def f(r: String) = Type.Function(
       Type.KindPoly("E", Annotations.Kind.Evidence(r, Evidence.Distance.Numeral(0), r), Type.Int),
-      Computation(Type.Int), region = Some(Evidence.Top), caller = Some(Caller(r, "D")))
+      Computation(Type.Int), region = Some(Evidence.Top))
     assert(!TypeEquality.same(f("r"), f("s")))
     assertEquals(Annotations.regions(Computation(f("r"))), Set("r"))
     val body = Core.Term(Core.Node.Return(Core.Value(Core.ValueNode.Integer(42), Type.Int)), Computation(Type.Int), "r")
@@ -220,11 +225,11 @@ class AtmCallerTests extends munit.FunSuite {
       }
     }""").flatMap(Checker.check)
     assert(result.isLeft)
-    assert(result.swap.toOption.get.message.contains("Annotation kind mismatch"))
+    assert(result.swap.toOption.get.message.contains("alpha notin fv(C)"))
   }
 
-  test("named caller types and checked lambdas alpha-rename the result family") {
-    run("""def main(): Int = {
+  test("ordinary arrow annotations cannot quantify their result over the caller") {
+    reject("""def main(): Int = {
       val make: ((Unit)[R: Reg] => forall E: Ev(R, 0, R). (Int)) =
         fun (u)[S: Reg] { fun [E: Ev(S, 0, S)] { 42 } };
       val first = make()[refl(top)];
@@ -232,17 +237,18 @@ class AtmCallerTests extends munit.FunSuite {
         def unused(): Unit / (Int => Int) = resume(())
         return x => x
       }
-    }""", "42")
+    }""")
   }
-  test("a named caller shadows an outer region only after the domain") {
+  test("a body-only caller alias shadows an outer region after the domain") {
     run("""def main(): Int = {
       region R = top;
       val answer = fun [E: Ev(top, 0, top)] { 42 };
       val invoke = fun (f: forall E: Ev(R, 0, R). (Int))[R: Reg]:
-          forall E: Ev(R, 0, R). (Int) {
-        fun [E: Ev(R, 0, R)] { f[refl(top)] }
+          Int {
+        val witness = fun [E: Ev(R, 0, R)] { f[refl(top)] };
+        witness[refl(R)]
       };
-      try { invoke(answer)[refl(h)] } with h: Int {
+      try { invoke(answer) } with h: Int {
         def unused(): Unit / (Int => Int) = resume(())
         return x => x
       }
@@ -279,8 +285,11 @@ class AtmCallerTests extends munit.FunSuite {
   test("here has no implicit region meaning and is an ordinary identifier") {
     run("def main(): Int = { val here = 42; here }", "42")
     run("""def main(): Int = {
-      val make = fun ()[here: Reg] { fun [E: Ev(here, 0, here)] { 42 } };
-      make()[refl]
+      val make = fun ()[here: Reg] {
+        val same = fun [E: Ev(here, 0, here)] { 42 };
+        same[refl]
+      };
+      make()
     }""", "42")
     for use <- List("region R = here; 0", "val f = fun () at [here]: Int { 42 }; 0") do {
       val p = Parser.parse("def main(): Int = { " + use + " }").fold(e => fail(e.message), identity)

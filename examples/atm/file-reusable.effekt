@@ -1,4 +1,4 @@
-// Reusable Fig. 1: a curried helper checked once, with explicit Cty/ATC parameters.
+// Reusable Fig. 1: a curried helper checked once, with explicit Reg/Cty/ATC parameters.
 // The returned callback consumer has an explicit fixed-region contract.
 // Mock descriptors contain their read result; closing has no OS effect.
 interface File {
@@ -7,7 +7,7 @@ interface File {
 }
 
 def main(): Int = {
-  val file = fun [C: Cty] (c: Int)[R: Reg] {
+  val file = fun [R: Reg, C: Cty] (c: Int) {
     fun (body:
       (f: File) => (forall E: Ev(f, 1, R).
         ((Unit)[K: ATC(dist(path(f)))] => Int / (K[Int] => K[C]) at {f}))
@@ -21,12 +21,12 @@ def main(): Int = {
       }: C
     }
   };
-  file[Int](7)(fun (a: File) {
+  file[top][Int](7)(fun (a: File) {
     fun [EA: Ev(a, 1, top)] {
       fun ()[S: Reg, K: ATC(dist(path(a)))]: Int / (K[Int] => K[Int]) {
         evidence PA = path(a);
         cty A = Int / (K[Int] => K[Int]);
-        file[A](35)(fun (b: File) {
+        file[S][A](35)(fun (b: File) {
           fun [EB: Ev(b, 1, S)] {
             fun ()[J: ATC(dist(path(b)))]: Int / (J[Int] => J[A]) {
               val x = a.read[path(b) + EB + PA; J[layer(Int, K[Int], K)]]()

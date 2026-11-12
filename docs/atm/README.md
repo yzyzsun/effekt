@@ -142,6 +142,8 @@ require a known minimum region). This notation also records backend captures.
 A function with a domain but no result annotation, such as `use` above, uses
 `A_AbsSyn`: synthesize the body in empty-answer mode and infer the minimum region
 from the captured residuals. Recursive definitions require a result annotation.
+The fresh body region must not occur free in the synthesized codomain;
+caller-dependent results are rejected, including nested returned arrows.
 
 In a checking position, the domain can also be omitted: `fun (x) { x }` obtains
 its argument type, result type and required region from the expected arrow.
@@ -248,18 +250,15 @@ statements. Local functions can also have empty argument lists. The ATM shortcut
 a Unit resumption.
 
 The [reusable Fig. 1 example](../../examples/atm/file-reusable.effekt) uses
-one caller-indexed `file` value with computation parameter `[C: Cty]`, called
-as `file[C](descriptor)(callback)`. It declares `(c: Int)[R: Reg]` to name its
-implicit caller. Its ordinary domain is `Int`; it returns
-a function with an explicit fixed-region contract. Its callbacks declare
-named `File` capabilities, evidence, and call ATCs with symbolic depths;
-operation calls supply those ATCs. The helper is checked once and instantiated at
-both nested call sites, with no contextual specialization. `interface File`,
-`read(): Int`, and `close(): Unit` remain. The mock-backed program checks at
-`Int / pure` and returns 42 through direct Lifted/Chez.
-The [rule-boundary document](CALLER-INDEXED.md) separates the paper's result
-families from explicit ATC abstraction, fixed-region checking, and surface
-annotation notation. Caller-dependent ordinary domains are not supported.
+one `file` value with explicit `[R: Reg, C: Cty]` parameters, called as
+`file[R][C](descriptor)(callback)`. Its ordinary domain is `Int`; its result
+is a fixed-region consumer at the explicitly supplied `R`. The ordinary arrow's
+fresh caller does not occur in that result. Callbacks declare named `File`
+capabilities, evidence, and ATCs with symbolic depths. The helper is checked
+once and instantiated at both nested call sites. `interface File`, `read(): Int`,
+and `close(): Unit` remain. The mock-backed program returns 42 through direct
+Lifted/Chez. The [rule-boundary document](CALLER-INDEXED.md) explains ordinary
+minimum requirements, explicit ATCs, and the fixed-region bridge.
 The former paper copies `file_simple_atm.effekt` and
 `file_simple_reusable.effekt` are consolidated here.
 
@@ -277,7 +276,7 @@ chez --script /tmp/file-reusable.ss
 ```
 
 Native block inference is unsupported. The former per-call specialization
-pass was removed; the explicit version uses ordinary caller-indexed functions
+pass was removed; the explicit version uses ordinary minimum-region functions
 and the [explicit ATC abstraction and fixed-region bridge](CALLER-INDEXED.md). The
 [inlined companion](../../examples/atm/file-nested.effekt) remains for comparison.
 See [FIDELITY.md](FIDELITY.md#reusable-helpers-explicit-polymorphism) for the
@@ -340,18 +339,24 @@ conditions; the intermediate final answer remains under the let binder until
 composition. This is surface annotation elaboration, not a new evidence or ATC
 rule. Supplied annotations are checked as well.
 
-## Caller-indexed functions and fixed-region contracts
+## Minimum call requirements and fixed-region contracts
 
-Ordinary `fun` retains the caller-dependent result family and is checked once.
-Name its implicit caller with `fun (x: T)[R: Reg] { ... }`,
-`def f(x: T)[R: Reg]: C = ...`, or `(T)[R: Reg] => C` in a type. `R` scopes
-over results, bodies, and later call-ATC kinds, not the ordinary argument domain.
-Application still supplies the caller implicitly. The removed name `here` has
-no predefined meaning; handler labels and `top` continue to name their regions.
+Ordinary `fun` has source type `(x: T) ->rho C`, with `rho` a minimum call
+requirement. A call from `r` reconstructs `r <= rho`; both `T` and `C` remain
+independent of the fresh body region `alpha`. `A_AbsSyn` enforces
+`alpha notin fv(C)`. `A_AbsChk` checks a codomain supplied outside that fresh
+region. The region/distance/evidence abstraction belongs to elaboration, not
+to the source type. Caller-dependent result annotations are rejected too.
+
+Post-parameter `[R: Reg]` remains a body-region alias for internal annotations;
+it cannot occur free in the function's codomain or its value-argument domain.
+Use pre-parameter `fun [R: Reg] ...` for an explicit region parameter that may
+occur in a returned type. `here` has no predefined meaning.
+
 An explicit call-context telescope, `fun ()[K: ATC(dist(path(h)))]: C { ... }`,
-quantifies over an ATC inside the implicit caller/evidence binders. Applications
-supply their contexts explicitly, such as `callback[[]]()`. This extends the
-printed algorithm; see [CALLER-INDEXED.md](CALLER-INDEXED.md).
+quantifies over ATCs inside the elaborated caller/evidence binders. Applications
+supply contexts explicitly, such as `callback[[]]()`. This extends the printed
+algorithm; see [CALLER-INDEXED.md](CALLER-INDEXED.md).
 
 The `local` keyword is removed. An explicit `(T) =>[r] C` contract retains the
 declarative exact-region behavior for stored resumptions and other ARM examples.
@@ -359,8 +364,8 @@ A plain `fun` checks against such a contract; `fun (x: T) at [r]: C { ... }`
 or `def f(x: T) at [r]: C = ...` supplies it inline. Fixed-region calls must
 occur at exactly `r`, and cannot be promoted to ordinary arrows. Annotated
 fixed-region recursion remains at the enclosing lexical region. Curried Fig. 1
-uses a fixed-region function as the ordinary helper's result; its ordinary
-argument domain remains caller-independent.
+uses a fixed-region function at its explicitly supplied region as the ordinary
+helper's result; both the ordinary domain and codomain are caller-independent.
 
 `return effect x => { ... }` explicitly enables effects in a handler's return
 clause using its known result contract. The clause executes outside the exited

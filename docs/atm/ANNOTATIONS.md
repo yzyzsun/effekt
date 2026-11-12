@@ -147,13 +147,14 @@ effects and refinement predicates.
 Handler labels already name regions: in `try { ... } with h: ...`, use `h`
 in region arguments, `Ev(h,0,h)`, `refl(h)`, or `at [h]`. Use `top` for the
 closed program's ambient region. To refer to an ordinary function's caller,
-explicitly bind its name: `fun (x: T)[R: Reg]: C { ... }` or
-`def f(x: T)[R: Reg]: C = ...`. Ordinary arrow types use `(T)[R: Reg] => C`.
-The binder scopes over the result/body and subsequent call-ATC kinds, not `T`.
-It names the implicit `A_Abs` parameter; ordinary calls still supply it
-implicitly. Pre-parameter `fun [R: Reg] ...` remains explicit type abstraction.
-`here` has no predefined meaning and is no longer a keyword. See
-[CALLER-INDEXED.md](CALLER-INDEXED.md) for scoping and Fig. 1.
+explicitly bind a body alias: `fun (x: T)[R: Reg]: C { ... }` or
+`def f(x: T)[R: Reg]: C = ...`. The alias is available inside the body and
+subsequent call-ATC kinds, but cannot occur free in `C` or the ordinary domain
+`T`. The same codomain restriction applies to `(T)[R: Reg] => C` annotations.
+The resulting ordinary source arrow has no caller binder. Pre-parameter
+`fun [R: Reg] ...` is explicit quantification and may occur in a returned type.
+`here` has no predefined meaning. See [CALLER-INDEXED.md](CALLER-INDEXED.md)
+for the `A_Abs` freshness condition and the updated Fig. 1.
 
 Lexical aliases use `region R = h;`, `distance D = 1;`,
 `evidence E = step(inner);`, `atc K = Int / (Int => []);`, and `cty C = Int;`.
@@ -201,5 +202,5 @@ as `callback[[]]()` or `callback[layer(Int, Int, [])]()`, with the depth checked
 against the actual call evidence. These functions are checked once; they are
 not specialized. Explicit call-ATC abstraction extends the printed algorithm.
 The [rule-boundary document](CALLER-INDEXED.md) distinguishes it from ordinary
-caller-indexed results and the declarative fixed-region bridge used by curried
-Fig. 1. Caller-dependent ordinary domains have been removed.
+minimum-requirement arrows and the declarative fixed-region bridge used by curried
+Fig. 1. Ordinary domains and codomains cannot depend on the fresh caller region.

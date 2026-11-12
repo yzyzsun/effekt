@@ -164,10 +164,14 @@ object Core {
         require((a.call.constraint.free - a.region).subsetOf(rs), "unbound function region")
         val function = v.tpe.asInstanceOf[Type.Function]
         val argument = function.argument
+        require(!Annotations.regions(function.result).contains(a.region) &&
+          !function.caller.exists(c => Annotations.regions(function.result).contains(c.region)),
+          "A_Abs: the fresh body region must not occur free in the codomain (alpha notin fv(C))")
+        require(function.caller.forall(_.contexts.nonEmpty), "ordinary source arrow binds a caller region")
         // The implicit caller and call-ATC telescope does not bind the domain.
         Annotations.validateArgument(Annotations.Argument.Computation(Computation(argument)), ks, rs)
         require(TypeEquality.same(body.tpe, FunctionTypes.result(function, a.region, a.call.distance)),
-          "function body does not implement its caller-indexed result")
+          "function body/result contract mismatch")
         require(!rs(a.region) && !bs.contains(a.call.name), "function binders are not fresh")
         require(a.call.distance.isInstanceOf[Distance.Variable], "function distance must be abstract")
         val callKinds = ks.updated(a.call.distance.asInstanceOf[Distance.Variable].name, Annotations.Kind.Distance)
@@ -304,7 +308,7 @@ object Core {
                 result = Annotations.substitution(name, Annotations.Argument.Context(context)).computation(result)
               }
               require(TypeEquality.same(Contracts.erase(t.tpe.value), Contracts.erase(result.value)),
-                "function application has an incorrect caller-indexed result")
+                "function application has an incorrect result type")
             case Type.Continuation(_, _, target, _, _) => require(evs.isEmpty && contexts.isEmpty && region == target, "continuation used outside its region")
             case Type.FixedFunction(_, _, _, Some(target), _) => require(evs.isEmpty && contexts.isEmpty && region == target, "local function used outside its region")
             case _ => throw Diagnostic("Core: invalid function application")

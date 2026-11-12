@@ -5,8 +5,9 @@ package effekt.atm
  * either be reconstructed or supplied through checked explicit annotations.
  */
 object Syntax {
-  // Binders of the implicit A_Abs call telescope. They scope over the
-  // contextual parameters and result, never over the value-argument domain.
+  // Metadata for the explicit call-ATC extension (and unresolved surface
+  // binder names). Ordinary resolved source arrows have no caller binder:
+  // A_Abs binds region/distance/evidence only in FunctionAbstraction.
   case class Caller(region: String, distance: String,
                     contexts: List[(String, Annotations.Kind)] = Nil)
   enum Type {
@@ -24,6 +25,8 @@ object Syntax {
     case Capability(name: String)
     // Captures are legacy emitter metadata. Only the region participates in
     // paper typing, subtyping, equality and free-region checks.
+    // region is the minimum call requirement rho, not the actual caller.
+    // Neither argument nor result may depend on the implicit fresh caller.
     case Function(argument: Type, result: Computation, captures: Set[String] = Set.empty,
                   region: Option[String] = None, parameter: Option[String] = None, caller: Option[Caller] = None)
     // A declarative arrow: callable at exactly its region, without a fresh

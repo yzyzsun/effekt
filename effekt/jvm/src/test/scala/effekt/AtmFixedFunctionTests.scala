@@ -87,17 +87,16 @@ class AtmFixedFunctionTests extends munit.FunSuite {
   test("explicit return clauses cannot invoke the capability they have exited") {
     rejected(read("return-effects").replace("outer.ask()", "inner.tick()"), "Unknown or out-of-scope")
   }
-  test("returned fixed-region arrows are indexed by the actual caller") {
-    val p = checked("""def main(): Int = {
+  test("returned fixed-region arrows cannot depend on an implicit caller") {
+    rejected("""def main(): Int = {
       def make(u: Unit)[R: Reg] = { fun (x: Int) at [R]: Int { x } }
       val f = make();
       f(42)
-    }""")
-    assertEquals(effekt.atm.DirectBackend.run(p).fold(fail(_), identity), "42")
+    }""", "alpha notin fv(C)")
   }
   test("an explicitly stable returned local arrow remains usable") {
     val p = checked("""def main(): Int = {
-      def make(u: Unit)[R: Reg]: ((Int) =>[R] Int) = { fun (x: Int) at [R]: Int { x } }
+      def make(u: Unit): ((Int) =>[top] Int) = { fun (x: Int) at [top]: Int { x } }
       val f = make();
       f(42)
     }""")
