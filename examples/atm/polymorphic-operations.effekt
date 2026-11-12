@@ -1,0 +1,16 @@
+// Each operation clause is checked once under its signature's parameters.
+// The handler does not repeat the parameter lists or value annotations.
+interface Operations {
+  def echo[A](x: A): A
+  def ping[C: Cty](): Unit / (C => C)
+}
+def main(): Int = {
+  try {
+    h.ping[Int]()
+    val flag = h.echo[Bool](true)
+    if (flag) { h.echo[Int](42) } else { 0 }
+  } with h: Operations {
+    def echo(x) = resume(x)
+    def ping() = resume(())
+  }
+}

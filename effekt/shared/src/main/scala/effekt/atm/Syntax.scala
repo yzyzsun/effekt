@@ -69,6 +69,12 @@ object Syntax {
     case AnswerEffect(value: Effect)
     case Predicate(parameters: List[(String, Logic.Sort)], body: Logic.Expr)
   }
+  enum ParameterKind {
+    case ValueType
+    case AnswerEffect(bound: EffectBound)
+    case Predicate(arguments: List[Logic.Sort])
+    case Annotation(kind: Annotations.Kind)
+  }
 
   enum Value {
     case Integer(value: BigInt)
@@ -113,6 +119,7 @@ object Syntax {
                           evidence: Option[Annotations.Proof], context: Option[Evidence.AnswerContext])
     // A lone annotation name is classified by its scoped kind during checking.
     case SingleAnnotatedPerform(capability: String, operation: String, argument: Value, annotation: String)
+    case PolymorphicPerform(call: Term, arguments: List[List[PolymorphicArgument]])
     case Handle(capability: String, result: Computation, operations: List[Operation],
                 body: Term, returned: String, onReturn: Term)
     case InferredHandle(capability: String, operations: List[Operation],
@@ -125,25 +132,29 @@ object Syntax {
                        argumentIdentity: Option[String] = None, returned: Option[String] = None,
                        interfaceName: Option[String] = None,
                        argumentAnnotated: Boolean = true, resultAnnotated: Boolean = true,
-                       argumentAnnotations: List[Option[Type]] = Nil, interfaceArguments: List[Type] = Nil) {
+                       argumentAnnotations: List[Option[Type]] = Nil, interfaceArguments: List[Type] = Nil,
+                       typeParameters: List[(String, ParameterKind)] = Nil) {
     // Missing source annotations are filled from the enclosing handler before
     // checking. Core and both backends only receive explicit contracts.
     def signature: Signature = {
       val (initial, finalAnswer) = answers.getOrElse(throw Diagnostic(s"Unresolved answer contract for operation $name"))
-      Signature(name, argument, result, initial, finalAnswer, argumentIdentity, returned)
+      Signature(name, argument, result, initial, finalAnswer, argumentIdentity, returned, typeParameters)
     }
     def initialAnswer: Computation = signature.initialAnswer
     def finalAnswer: Computation = signature.finalAnswer
   }
   case class Signature(name: String, argument: Type, result: Type,
                        initialAnswer: Computation, finalAnswer: Computation,
-                       parameter: Option[String] = None, returned: Option[String] = None)
+                       parameter: Option[String] = None, returned: Option[String] = None,
+                       typeParameters: List[(String, ParameterKind)] = Nil)
   case class DataConstructor(name: String, fields: List[(String, Type)])
   case class DataDeclaration(name: String, constructors: List[DataConstructor])
-  // Native interface headers specify value signatures. Each implementation
-  // supplies or infers its ATM answer contract independently.
+  // Interface headers may supply full ATM contracts. Value-only signatures
+  // retain the contextual answer convention in each implementation.
   case class InterfaceOperation(name: String, parameter: Option[String], argument: Type,
-                                result: Type, returned: Option[String] = None, arity: Int = 0)
+                                result: Type, returned: Option[String] = None, arity: Int = 0,
+                                typeParameters: List[(String, ParameterKind)] = Nil,
+                                answers: Option[(Computation, Computation)] = None)
   case class InterfaceDeclaration(name: String, operations: List[InterfaceOperation], typeParameters: List[String] = Nil)
   case class Program(result: Computation, body: Term, datatypes: List[DataDeclaration] = Nil,
                      measures: List[Logic.Measure] = Nil, interfaces: List[InterfaceDeclaration] = Nil,
@@ -175,7 +186,7 @@ object Syntax {
     case Type.FixedFunction(arg, result, _, region, parameter) =>
       s"(${parameter.fold("")(p => displayName(p) + ": ")}${show(arg)}) =>[${region.map(displayName).getOrElse("<unresolved>")}] ${show(result)}"
     case Type.CapabilityPoly(parameter, operations, body, _, _, obligations) =>
-      val contract = operations.map(o => s"def ${o.name}(${show(o.argument)}): ${show(o.result)} / (${show(o.initialAnswer)} => ${show(o.finalAnswer)});").mkString(" ")
+      val contract = operations.map(o => s"def ${o.name}${showParameters(o.typeParameters)}(${show(o.argument)}): ${show(o.result)} / (${show(o.initialAnswer)} => ${show(o.finalAnswer)});").mkString(" ")
       val requirements = if obligations.isEmpty then "" else s" where ${obligations.map(_.constraint).mkString(", ")}"
       s"(${displayName(parameter)}: { $contract }) => ${show(body)}$requirements"
     case Type.EffectPoly(parameter, body, bound) =>
@@ -189,6 +200,12 @@ object Syntax {
     case Type.AbstractResult(c) => s"value(${Annotations.show(c)})"
   }
   private def displayName(name: String): String = name.takeWhile(_ != '#')
+  def showParameters(ps: List[(String, ParameterKind)]): String = if ps.isEmpty then "" else ps.map {
+    case (n, ParameterKind.ValueType) => displayName(n)
+    case (n, ParameterKind.AnswerEffect(_)) => s"${displayName(n)}: Eff"
+    case (n, ParameterKind.Predicate(args)) => s"${displayName(n)}: Pred${args.mkString("(", ", ", ")")}"
+    case (n, ParameterKind.Annotation(k)) => s"${displayName(n)}: $k"
+  }.mkString("[", ", ", "]")
   def show(tpe: Computation): String = tpe.form.fold(
     s"${tpe.returned.fold("")(n => displayName(n) + ": ")}${show(tpe.value)} / ${show(tpe.effect)}")(Annotations.show)
   def show(effect: Effect): String = effect match {

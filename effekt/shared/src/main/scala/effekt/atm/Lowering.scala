@@ -121,6 +121,8 @@ object Lowering {
     // with the same method names share a generic nominal interface, allowing
     // one checked abstraction to accept independently allocated handlers.
     private def interface(operations: List[Signature], env: Env): String = {
+      if operations.exists(_.typeParameters.nonEmpty) then
+        throw Diagnostic("Polymorphic operation signatures use the direct Lifted backend", DiagnosticKind.Unsupported)
       val sorted = operations.sortBy(_.name)
       val name = interfaces.getOrElseUpdate(sorted.map(_.name), {
         val name = s"AtmOperations${fresh("Interface")}"
@@ -319,7 +321,7 @@ object Lowering {
           "case AtmCtor" + c.constructor + params.mkString("(", ", ", ")") + " => " + statements(term(body, scope))
         }.mkString("\n")
         s"{ val $scrutinee = ${value(t.values.head, env)}; $scrutinee match { $branches } }"
-      case _: Term.AnnotatedPerform | _: Term.SingleAnnotatedPerform => throw Diagnostic("Unresolved operation annotation")
+      case _: Term.AnnotatedPerform | _: Term.SingleAnnotatedPerform | _: Term.PolymorphicPerform => throw Diagnostic("Unresolved operation annotation")
       case Term.Perform(cap, operation, _) =>
         val receiver = env.values.getOrElse(cap, env.caps.getOrElse(cap,
           throw Diagnostic(s"Missing target capability $cap")))
@@ -327,6 +329,8 @@ object Lowering {
         val arg = fresh("OperationArg")
         s"{ val $arg = $argument; $receiver.$operation($arg) }"
       case Term.Handle(cap, _, _, _, returned, _) =>
+        if t.operations.exists(_.source.typeParameters.nonEmpty) then
+          throw Diagnostic("Polymorphic operation signatures use the direct Lifted backend", DiagnosticKind.Unsupported)
         val id = fresh("Handler")
         val boxName = s"AtmAnswer$id"
         val normalTag = s"AtmNormal$id"

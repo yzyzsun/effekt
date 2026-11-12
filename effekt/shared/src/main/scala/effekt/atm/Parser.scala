@@ -115,18 +115,15 @@ object Parser {
       case _ => fail("A polymorphic abstraction body must be a value; put computations inside a function")
     }
 
-    private enum ParameterKind {
-      case ValueType
-      case AnswerEffect(bound: EffectBound)
-      case Annotation(kind: Kind)
-    }
     private def abstractionParameters(): List[(String, ParameterKind)] = {
       expect("[")
       val params = scala.collection.mutable.ListBuffer.empty[(String, ParameterKind)]
       def parameter(): Unit = {
         val name = identifier()
         val k = if !accept(":") then ParameterKind.ValueType
+          else if accept("Type") || accept("Vty") then ParameterKind.ValueType
           else if accept("Eff") then ParameterKind.AnswerEffect(optionalBound())
+          else if accept("Pred") then ParameterKind.Predicate(predicateSorts())
           else ParameterKind.Annotation(kind())
         params += ((name, k))
       }
@@ -138,6 +135,7 @@ object Parser {
       params.foldRight(body) { case ((n, k), b) => k match {
         case ParameterKind.ValueType => Value.TypeLambda(n, b)
         case ParameterKind.AnswerEffect(bound) => Value.EffectLambda(n, b, bound)
+        case ParameterKind.Predicate(args) => Value.PredicateLambda(n, args, b)
         case ParameterKind.Annotation(kind) => Value.KindLambda(n, kind, b)
       }}
 
@@ -253,10 +251,12 @@ object Parser {
       val ops = scala.collection.mutable.ListBuffer.empty[InterfaceOperation]
       while accept("def") do {
         val operation = operationName()
+        val quantified = if current == "[" then abstractionParameters() else Nil
         val params = parameters(required = true, optionalParens = true)
         expect(":"); val (result, returned) = operationResult()
+        val answers = if accept("/") then { val (a, b) = answerTransition(); Some((params.result(a), params.result(b))) } else None
         if ops.exists(_.name == operation) then fail(s"Duplicate operation $operation in interface $name")
-        ops += InterfaceOperation(operation, Option.when(params.size > 0)(params.binder), params.argument, params.result(result), returned, params.size)
+        ops += InterfaceOperation(operation, Option.when(params.size > 0)(params.binder), params.argument, params.result(result), returned, params.size, quantified, answers)
         if current != "def" then separator()
       }
       expect("}"); accept(";")
@@ -720,7 +720,9 @@ object Parser {
       } else (tpe(), None)
     }
     private def signature(): Signature = {
-      expect("def"); val name = identifier(); expect("(")
+      expect("def"); val name = operationName()
+      val quantified = if current == "[" then abstractionParameters() else Nil
+      expect("(")
       val parameter = if current != ")" && tokens.lift(position + 1).exists(_.text == ":") then {
         val name = identifier(); expect(":"); Some(name)
       } else None
@@ -728,7 +730,7 @@ object Parser {
       expect(")"); expect(":"); val (result, returned) = operationResult(); expect("/")
       val (initial, finalAnswer) = answerTransition()
       expect(";")
-      Signature(name, argument, result, initial, finalAnswer, parameter, returned)
+      Signature(name, argument, result, initial, finalAnswer, parameter, returned, quantified)
     }
     private def signatures(): List[Signature] = {
       expect("{")
@@ -906,6 +908,7 @@ object Parser {
           val name = operationName()
           val declared = interface.map(i => i.operations.find(_.name == name).getOrElse(
             fail(s"Operation $name is not declared in interface ${i.name}")))
+          val quantified = if current == "[" then abstractionParameters() else declared.toList.flatMap(_.typeParameters)
           val params = parameters(optionalParens = true)
           if declared.exists(d => d.arity != params.size) then fail(s"Wrong number of parameters for operation $name")
           val parameter = params.binder
@@ -924,7 +927,8 @@ object Parser {
           expect("=")
           ops += Operation(name, arg, res, answers, parameter, k, params.bind(term()), returned = returned,
             interfaceName = interface.map(_.name), argumentAnnotated = declared.isEmpty,
-            resultAnnotated = resultAnnotated, interfaceArguments = interfaceArguments, argumentAnnotations = if declared.nonEmpty then params.fields.map(_._2) else Nil)
+            resultAnnotated = resultAnnotated, interfaceArguments = interfaceArguments, argumentAnnotations = if declared.nonEmpty then params.fields.map(_._2) else Nil,
+            typeParameters = quantified)
           accept(";")
         }
         interface.foreach { i =>
@@ -953,9 +957,32 @@ object Parser {
         case _ => fail("An operation receiver must be a capability name or alias")
       }
       val op = operationName()
-      if accept("[") then {
-        var ev: Option[Proof] = None; var cc: Option[AnswerContext] = None
-        var singleName: Option[String] = None
+      operationArguments(name, op)
+    }
+    private def operationArguments(name: String, op: String): Term = {
+      // An optional [evidence; ATC] group precedes typelike lists. Without
+      // that group, a single argument is classified by the signature's kind.
+      def typelikeGroup: Boolean = {
+        var i = position + 1; var depth = 0
+        var semicolon = false
+        while i < tokens.size && !(depth == 0 && tokens(i).text == "]") do {
+          tokens(i).text match {
+            case "[" | "(" | "{" => depth += 1
+            case "]" | ")" | "}" => depth -= 1
+            case ";" if depth == 0 => semicolon = true
+            case _ => ()
+          }
+          i += 1
+        }
+        val tagged = tokens.lift(position + 1).exists(t => Set("evidence", "atc")(t.text)) &&
+          !tokens.lift(position + 2).exists(t => Set(";", "]", "+", ",")(t.text))
+        !semicolon && !tagged
+      }
+      var ev: Option[Proof] = None; var cc: Option[AnswerContext] = None
+      var singleName: Option[String] = None
+      val annotated = current == "[" && !typelikeGroup
+      if annotated then {
+        take()
         val legacyTagged = Set("evidence", "atc")(current) &&
           !tokens.lift(position + 1).exists(t => Set(";", "]", "+")(t.text))
         if legacyTagged then {
@@ -988,12 +1015,23 @@ object Parser {
             fail("An operation annotation needs evidence or an answer type context")
         }
         expect("]")
-        val arg = argument()
-        singleName match {
+      }
+      val groups = scala.collection.mutable.ListBuffer.empty[List[List[PolymorphicArgument]]]
+      while current == "[" do {
+        if !typelikeGroup then
+          fail("Supply one evidence/ATC annotation group before the typelike arguments")
+        take()
+        val arguments = scala.collection.mutable.ListBuffer(polymorphicArgument())
+        while accept(",") do arguments += polymorphicArgument()
+        expect("]")
+        groups += arguments.toList
+      }
+      val arg = argument()
+      val call = if annotated then singleName match {
           case Some(n) => Term.SingleAnnotatedPerform(name, op, arg, n)
           case None => Term.AnnotatedPerform(name, op, arg, ev, cc)
-        }
-      } else Term.Perform(name, op, argument())
+        } else Term.Perform(name, op, arg)
+      groups.foldRight[Term](call)((arguments, term) => Term.PolymorphicPerform(term, arguments))
     }
     private def matchCases(): List[MatchCase] = {
       expect("{")

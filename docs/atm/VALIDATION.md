@@ -1059,3 +1059,107 @@ ports, the 6 nested-handler files, 13 coverage entries). One regression in
 `AtmInferTests` rewrote `def ask(u: Unit)` in an example and now targets
 `def ask()`. All **516 ATM tests** and **35 Core tests** pass, Scala.js
 compiles, and both validators pass.
+
+## 2026-11-13: polymorphic operation signatures and Section 5.1
+
+Implemented operation telescopes over value types, predicates, effects, regions,
+distances, computations, evidence and ATCs. Named interface clauses inherit
+omitted binders and value/answer annotations; explicit repeated binders are
+checked modulo renaming. Calls instantiate the complete signature, and generic
+clauses are checked once under fresh abstract parameters. Core checks the
+instantiation certificate. Direct Lifted/Chez carries method type/computation
+parameters and runtime evidence; the legacy emitter diagnoses these schemes as
+unsupported. Multiple-argument checking now propagates expected tuple component
+types to callback lambdas.
+
+The accepted `polymorphic-operations.effekt` example returns **42**. Two current
+Section 5.1 translations are rejected for distinct reasons: the modular helper
+applies its ATC twice, and the simpler effect-polymorphic handler reaches the
+existing opaque-effect final-answer projection limitation. These outcomes are
+regressions, not successful ports. See [the audit](POLYMORPHIC-OPERATIONS.md).
+
+Validation:
+
+- Full `effekt.Atm*Tests`: **540 passed**; Core/monomorphization: **35 passed**.
+- After the final parser compatibility adjustment and strengthened tests,
+  `AtmPolymorphicOperationTests`, `AtmParserTests`, `AtmExplicitAnnotationTests`
+  and `AtmPolymorphicSyntaxTests`: **102 passed**, including 25 operation tests.
+  This adds one test after the full run; all changed behavior is covered by
+  the final focused run.
+- **Scala.js compilation passed** after the final changes.
+- `check_examples.py`: **112 files, zero inventory mismatches** — 76 accepted,
+  21 contract rejections, 10 checking/inference limits, 2 type rejections and
+  3 unsupported. Report: `/tmp/atm-poly-examples.json`; historical reports
+  under `results/` were not replaced.
+- `paper_coverage.py --render` validated 81 benchmark entries and 7 example
+  groups; the generated table records the remaining limitations.
+- `git diff --check` passed.
+
+## 2026-11-13: repaired Section 5.1 and opaque-effect checking
+
+This supersedes the two Section 5.1 rejections recorded above. The compiler now
+checks known `T / F` contracts directly using declarative `T_App`, `T_LetPure`
+and `T_LetEVar`, without assigning an invented final answer to `F`. Strict mode
+retains the printed partial algorithm. Core checks opaque application effects,
+let composition and the prohibition on fabricating an arbitrary effect by
+returning a pure value.
+
+The runnable examples also required source corrections. The modular operation
+scheme quantifies only `F`; the helper retains its distance, ATC and evidence
+parameters and applies the context once at invocation. File clauses resume
+before constructing their pure state wrappers. The old clause layout put the
+effect inside the function body, contrary to its declared position. These are
+explicit changes to signatures and evaluation order, not acceptance of the
+original source unchanged. See [the repair](POLYMORPHIC-OPERATIONS.md).
+
+Four examples check under abstract parameters and execute in the reference
+interpreter and Direct Lifted/Chez with optimization off/on:
+
+- `section5-1-effect-file.effekt`: **42**.
+- `section5-1-modular-file.effekt`: **42**.
+- `section5-1-modular-nested.effekt`: **42**, with distance one and a nonempty ATC.
+- `section5-1-effect-nested.effekt`: **true**, with `F = Int => Bool`.
+
+Validation: **557 ATM tests passed**, **35 Core/monomorphization tests passed**,
+and **Scala.js compilation passed**. Regressions reject the original double
+context and deferred-effect clauses, repeated/discarded/fabricated abstract
+effects, and a mutated Core return. `check_examples.py` checked **114 files**
+with **zero inventory mismatches**: 80 accepted, 21 contract rejections,
+9 inference limits, 1 type rejection and 3 unsupported. The temporary report is
+`/tmp/atm-section51-examples.json`; checked executable sources were unchanged
+after that inventory run (one checker comment was clarified).
+`paper_coverage.py --render` validated all 81 benchmark entries and 7 example
+groups. `git diff --check` passed.
+
+## 2026-11-13: restored context-polymorphic contract and operation annotation order
+
+The manuscript's original Modular Effectful Functions passage was restored.
+The runnable modular files retain weaker effect-only operation signatures;
+the earlier successful checks do not establish the original context-polymorphic
+handler or helper. The calculus is unchanged. Separate checks accept the
+context-polymorphic read clause `resume(42)`, reject the old close wrapper even
+at a concrete depth-one context, and reject the original helper's doubled
+context independently of the handler. See the current
+[Section 5.1 audit](POLYMORPHIC-OPERATIONS.md#section-51-check).
+
+Operation calls now put invocation annotations before typelike arguments:
+`h.op[e; K][T, F](v)`. Either annotation may be omitted (`[e;]`, `[; K]`),
+and the whole annotation group may be omitted for inference. Typelike arguments
+may be grouped or chained after it. The previous trailing evidence/ATC group
+is rejected with an order-specific diagnostic. Existing monomorphic and legacy
+tagged annotations remain supported. Typing rules and Core representation are
+unchanged. The paper, supplement, documentation and modular examples use this
+order; the coverage manifest records the examples as effect-only variants.
+
+Validation: **560 ATM tests passed**, including annotation omissions, chained
+kind-dependent arguments, nested contexts, invalid evidence/depths, and rejection
+of the old order. **Scala.js compilation passed**. `check_examples.py` checked
+**114 files with zero inventory mismatches**: 80 accepted, 21 contract
+rejections, 9 inference limits, 1 type rejection and 3 unsupported.
+`paper_coverage.py --render` validated 81 benchmark entries and 7 example groups.
+Both PDFs rebuilt; the changed implementation pages were rendered and visually
+checked. `git diff --check` passed in both repositories.
+
+Logs: `/tmp/atm-annotation-order-full.log`,
+`/tmp/atm-annotation-order-examples.json`, and
+`/tmp/atm-context-polymorphic-repair/syntax-*-build.log`.

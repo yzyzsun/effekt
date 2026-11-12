@@ -107,7 +107,7 @@ object Core {
           term(t.children.head, r), ret, term(t.children(1), region), t.operations.map(o =>
             Operation(o.source.signature, o.source.parameter, o.source.continuation, term(o.body, region))))
         case _: S.InferredHandle => throw Diagnostic("Core: unresolved handler result annotation")
-        case _: S.AnnotatedPerform | _: S.SingleAnnotatedPerform => throw Diagnostic("Core: unresolved operation annotation")
+        case _: S.AnnotatedPerform | _: S.SingleAnnotatedPerform | _: S.PolymorphicPerform => throw Diagnostic("Core: unresolved operation annotation")
         case _: S.Ascribe | _: S.TypeAlias | _: S.AnnotationAlias => Node.Ascribe(term(t.children.head, region))
       }
       Term(node, t.tpe, region)
@@ -267,11 +267,20 @@ object Core {
       resolved(t.tpe)
       require(t.region == region, "term moved to a different region")
       t.node match {
-        case Node.Return(v) => value(v, bs, rs, region, vs, cs, ks)
+        case Node.Return(v) =>
+          require(!t.tpe.effect.isInstanceOf[Syntax.Effect.Variable], "a pure return cannot invent an abstract effect")
+          value(v, bs, rs, region, vs, cs, ks)
         case Node.Assert => ()
         case Node.Let(n, first, body) =>
           term(first, bs, rs, region, vs, cs, ks)
           term(body, bs, rs, region, vs.updated(n, first.tpe.value), cs, ks)
+          if t.tpe.effect.isInstanceOf[Syntax.Effect.Variable] then {
+            require((first.tpe.effect == Syntax.Effect.Pure && TypeEquality.same(body.tpe.effect, t.tpe.effect)) ||
+              (TypeEquality.same(first.tpe.effect, t.tpe.effect) && body.tpe.effect == Syntax.Effect.Pure),
+              "abstract-effect let must use T_LetPure or T_LetEVar")
+            require(TypeEquality.same(Contracts.erase(body.tpe.value), Contracts.erase(t.tpe.value)),
+              "abstract-effect let result differs from its body")
+          }
         case Node.LetRec(n, f, body) =>
           value(f, bs, rs, region, vs.updated(n, f.tpe), cs, ks)
           term(body, bs, rs, region, vs.updated(n, f.tpe), cs, ks)
@@ -295,6 +304,9 @@ object Core {
           }
         case Node.Apply(f, a, evs, contexts) =>
           value(f, bs, rs, region, vs, cs, ks); value(a, bs, rs, region, vs, cs, ks); evs.foreach(proof(_, bs, rs))
+          def opaqueResult(result: Computation): Unit =
+            if result.effect.isInstanceOf[Syntax.Effect.Variable] then
+              require(TypeEquality.same(result.effect, t.tpe.effect), "application changed its abstract effect")
           f.tpe match {
             case f: Type.Function =>
               require(evs.size == 1 && f.region.contains(evs.head.constraint.to) && evs.head.constraint.from == region, "incorrect function call evidence")
@@ -308,7 +320,10 @@ object Core {
               }
               require(TypeEquality.same(Contracts.erase(t.tpe.value), Contracts.erase(result.value)),
                 "function application has an incorrect result type")
-            case Type.FixedFunction(_, _, _, Some(target), _) => require(evs.isEmpty && contexts.isEmpty && region == target, "exact-region arrow used outside its region")
+              opaqueResult(result)
+            case Type.FixedFunction(_, result, _, Some(target), _) =>
+              require(evs.isEmpty && contexts.isEmpty && region == target, "exact-region arrow used outside its region")
+              opaqueResult(result)
             case _ => throw Diagnostic("Core: invalid function application")
           }
         case Node.Perform(receiver, operation, a, ev, typing) =>
@@ -322,6 +337,32 @@ object Core {
           val operations = cs.getOrElse(target, throw Diagnostic("Core: unbound operation receiver"))
           require(ev.constraint.to == target, "operation evidence targets a different capability")
           require(operations.exists(_.name == operation) && typing.signature.name == operation, "unknown operation slot")
+          val declared = operations.find(_.name == operation).get
+          require(declared.typeParameters.size == typing.arguments.size, "operation type argument arity")
+          val instantiated = typing.arguments.foldLeft(OperationSignatures.scheme(declared)) { (tpe, actual) =>
+            (tpe, actual) match {
+              case (Type.KindPoly(_, k, _), Syntax.PolymorphicArgument.Kind(a)) =>
+                Annotations.validateArgument(a, ks, rs)
+                require(Annotations.sameKind(k, Annotations.kindOf(a, ks)), "operation type argument kind mismatch")
+                a match {
+                  case Annotations.Argument.Evidence(Annotations.Proof.Checked(w)) => proof(w, bs, rs)
+                  case _ => ()
+                }
+              case (_: Type.TypePoly, Syntax.PolymorphicArgument.ValueType(t)) =>
+                Annotations.validateArgument(Annotations.Argument.Computation(Computation(t)), ks, rs)
+              case (Type.PredicatePoly(_, sorts, _), Syntax.PolymorphicArgument.Predicate(ps, _)) =>
+                require(sorts == ps.map(_._2), "operation predicate argument sorts")
+              case (_: Type.EffectPoly, _: Syntax.PolymorphicArgument.AnswerEffect) => ()
+              case _ => throw Diagnostic("Core: operation type argument kind mismatch")
+            }
+            OperationSignatures.instantiate(tpe, actual)
+          }
+          val instance = OperationSignatures.signature(operation, instantiated)
+          require(typing.signature.typeParameters.isEmpty, "operation invocation retains uninstantiated parameters")
+          // Value/refinement subtyping is certified by Checker, as for ordinary
+          // calls. Independently verify the instantiated signature itself.
+          require(TypeEquality.same(Contracts.erase(instance.argument), Contracts.erase(typing.signature.argument)), "operation argument differs from its instantiated signature")
+          require(TypeEquality.same(Contracts.erase(instance.result), Contracts.erase(typing.signature.result)), "operation instantiation result mismatch")
           require(TypeEquality.same(Contracts.erase(typing.signature.result), Contracts.erase(typing.inferred.value)), "operation result differs from its signature")
           Annotations.validateArgument(Annotations.Argument.Context(typing.context), ks, rs)
           require(Evidence.sameDistance(ev.distance, Annotations.depth(typing.context, ks)), "ATC depth differs from evidence distance")
@@ -348,8 +389,21 @@ object Core {
           term(body, bs.updated(edge.name, edge), rs + r, r, vs, cs.updated(r, ops.map(_.signature)), ks)
           term(ret, bs, rs, region, vs.updated(returned, body.tpe.value), cs, ks)
           ops.foreach { o =>
+            var innerKinds = ks; var innerRegions = rs; var innerBindings = bs
+            o.signature.typeParameters.foreach {
+              case (n, Syntax.ParameterKind.Annotation(k)) =>
+                Annotations.validateKind(k, innerKinds, innerRegions)
+                require(!innerKinds.contains(n) && !innerRegions(n) && !innerBindings.contains(n), "operation binder is not fresh")
+                innerKinds += n -> k
+                k match {
+                  case Annotations.Kind.Region => innerRegions += n
+                  case Annotations.Kind.Evidence(a, d, b) => innerBindings += n -> Binding(n, Constraint(a, b), d)
+                  case _ => ()
+                }
+              case _ => ()
+            }
             val k = Type.FixedFunction(o.signature.result, o.signature.initialAnswer, Set.empty, Some(region), o.signature.returned)
-            term(o.body, bs, rs, region, vs.updated(o.parameter, o.signature.argument).updated(o.continuation, k), cs, ks)
+            term(o.body, innerBindings, innerRegions, region, vs.updated(o.parameter, o.signature.argument).updated(o.continuation, k), cs, innerKinds)
           }
       }
     }

@@ -80,6 +80,7 @@ object Surface {
     case Term.Perform(c, _, a) => free(a) + c
     case Term.AnnotatedPerform(c, _, a, _, _) => free(a) + c
     case Term.SingleAnnotatedPerform(c, _, a, _) => free(a) + c
+    case Term.PolymorphicPerform(call, _) => free(call)
     case Term.Ascribe(b, _) => free(b)
     case Term.TypeAlias(_, _, b) => free(b)
     case Term.AnnotationAlias(_, _, b) => free(b)

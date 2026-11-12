@@ -164,15 +164,30 @@ class AtmParserTests extends munit.FunSuite {
       "[step(h)]" -> "[evidence step(h)]",
       "[layer(Int, Int, [])]" -> "[atc layer(Int, Int, [])]",
       "[K[J]]" -> "[atc K[J]]",
-      "[; K]" -> "[atc K]") do assertEquals(call(positional), call(tagged))
+      "[; K]" -> "[atc K]") do {
+      // Untagged single arguments can now also be operation type arguments.
+      // Their alternatives must retain the old explicit annotation reading.
+      (call(positional).body, call(tagged).body) match {
+        case (Term.PolymorphicPerform(Term.Perform(c, op, arg), List(as)),
+            Term.AnnotatedPerform(d, method, value, ev, ctx)) =>
+          assertEquals((c, op, arg), (d, method, value))
+          ev.foreach(e => assert(as.contains(PolymorphicArgument.Kind(effekt.atm.Annotations.Argument.Evidence(e)))))
+          ctx.foreach(k => assert(as.contains(PolymorphicArgument.Kind(effekt.atm.Annotations.Argument.Context(k)))))
+        case _ => assertEquals(call(positional), call(tagged))
+      }
+    }
   }
 
   test("single operation annotation names remain unresolved until kind checking") {
-    for name <- List("K", "e", "evidence", "atc") do
-      assertEquals(parse(s"def main(): Int = { h.ask[$name]() }").body,
-        Term.SingleAnnotatedPerform("h", "ask", Value.Unit, name))
-    assertEquals(parse("def main(): Int = { h.ask[(K)]() }").body,
-      Term.SingleAnnotatedPerform("h", "ask", Value.Unit, "K"))
+    for name <- List("K", "e", "evidence", "atc", "(K)") do {
+      val n = if name == "(K)" then "K" else name
+      parse(s"def main(): Int = { h.ask[$name]() }").body match {
+        case Term.SingleAnnotatedPerform("h", "ask", Value.Unit, actual) => assertEquals(actual, n)
+        case Term.PolymorphicPerform(Term.Perform("h", "ask", Value.Unit), List(as)) =>
+          assert(as.contains(PolymorphicArgument.Kind(effekt.atm.Annotations.Argument.Evidence(effekt.atm.Annotations.Proof.Variable(n)))))
+        case other => fail(s"Unexpected operation syntax: $other")
+      }
+    }
   }
 
   test("nested contexts and composed evidence stay inside their operation annotation slots") {
@@ -186,5 +201,28 @@ class AtmParserTests extends munit.FunSuite {
   test("empty operation annotation brackets and extra positions are rejected") {
     for annotations <- List("[]", "[;]", "[E; K; J]", "[; K;]") do
       assert(Parser.parse(s"def main(): Int = { h.ask$annotations() }").isLeft, annotations)
+  }
+
+  test("an initial evidence/ATC group preserves the order of chained typelike arguments") {
+    def call(groups: String) = parse(s"def main(): Int = { h.ask$groups() }").body
+    def unpack(term: Term): (Term, List[List[PolymorphicArgument]]) = term match {
+      case Term.PolymorphicPerform(inner, arguments) =>
+        val (base, rest) = unpack(inner)
+        (base, arguments ++ rest)
+      case base => (base, Nil)
+    }
+    val arguments = "[Int][F, D, J]"
+    val (base, actual) = unpack(call("[E; K[J[layer(Int, Int, [])]]]" + arguments))
+    assertEquals(base, call("[E; K[J[layer(Int, Int, [])]]]"))
+    assertEquals(actual, unpack(call(arguments))._2)
+  }
+
+  test("operation evidence/ATC groups cannot follow typelike arguments or repeat") {
+    for groups <- List("[Int][refl; []]", "[Int][evidence refl]",
+      "[refl;][; []][Int]", "[refl; []][Int][refl; []]") do {
+      val result = Parser.parse(s"def main(): Int = { h.ask$groups() }")
+      assert(result.isLeft, groups)
+      assert(result.swap.toOption.get.message.contains("before the typelike arguments"), result.toString)
+    }
   }
 }

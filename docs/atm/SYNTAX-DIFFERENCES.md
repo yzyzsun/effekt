@@ -55,7 +55,7 @@ callback-domain extension remains removed.
 | Chained `with` clauses | Native Effekt binds the capabilities under **one shared handler region** (`Typer.scala`, `core/Transformer.scala`). Rewriting these as several nested ATM handlers would add delimiters and change evidence distances. Correct capability-group elaboration is still needed. |
 | `effect Ask(): Int`, unnamed handlers and single-operation handler shorthand | Declaration and handler desugaring remain missing. These are not inherent ATM restrictions. |
 | `do read()` and inferred capability arguments | Native operation/name resolution and implicit capability passing are not integrated; use explicit receivers. This also affects reusable helpers with native effect annotations. |
-| Polymorphic operations, omitted generic instantiations | Parameterized **interfaces** now work, but operations cannot declare their own type parameters. Function/interface type arguments remain explicit; native type-argument inference is not implemented. |
+| Omitted generic instantiations | Interfaces and individual operations support explicit typelike parameters. Handler clauses may inherit their binders and annotations from the signature. Call arguments remain explicit; native type-argument inference is not implemented. See [polymorphic operations](POLYMORPHIC-OPERATIONS.md). |
 | Mutual recursion and polymorphic recursive functions | Need recursive groups/schemes beyond the existing unary `LetRec`. Ordinary monomorphic self recursion works. |
 | Generic datatypes, records, lists, nested/default/guarded patterns | The datatype checker currently supports monomorphic data and exhaustive flat constructor cases. These forms require further data/pattern elaboration and coverage checking. |
 | General native interface objects/blocks; `new File { ... }` | Named interfaces supply handler signatures and capability-parameter contracts. General native object/block typing is not integrated. |
@@ -99,9 +99,10 @@ retain a distinction between multiple arguments and an explicitly packed pair.
   kinds from the function's type. Grouped and multiline chained arguments work.
   The old `typefun` and tagged argument spellings remain compatible.
 - Default `C => C` operation answers and partial handler-result synthesis remain
-  extra surface inference checked by the existing algorithm. Generic interface
-  instantiation produces ordinary monomorphic operation signatures; it does not
-  add nominal capability types or polymorphic-operation rules.
+  extra surface inference checked by the existing algorithm. Interface
+  parameters are instantiated separately from each operation's quantified
+  parameters; neither introduces nominal capability types. Complete declared
+  answer contracts are inherited and checked by handler clauses.
 - Legacy `with h: C { ... }` computation annotations remain compatible. A declared
   interface name selects the native interface form; use a trailing `: C` when
   supplying both an interface and a computation annotation.

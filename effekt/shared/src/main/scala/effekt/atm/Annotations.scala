@@ -92,8 +92,7 @@ object Annotations {
       case Witness.Use(b) => Witness.Use(binding(b))
       case Witness.Compose(a, b) => effekt.atm.Evidence.compose(witness(a), witness(b))
     }
-    def signature(o: Signature): Signature = o.copy(argument = typ(o.argument), result = typ(o.result),
-      initialAnswer = computation(o.initialAnswer), finalAnswer = computation(o.finalAnswer))
+    def signature(o: Signature): Signature = OperationSignatures.signature(o.name, typ(OperationSignatures.scheme(o)))
     def typ(t: Type): Type = after(t match {
       case Type.Interface(n, args) => Type.Interface(n, args.map(typ))
       case Type.Pair(a, b) => Type.Pair(typ(a), typ(b))

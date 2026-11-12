@@ -12,6 +12,11 @@ object Elaboration {
   def substitute(t: CheckedTerm, sigma: Map[String, Witness]): CheckedTerm = t.copy(
     values = t.values.map(substitute(_, sigma)), children = t.children.map(substitute(_, sigma)),
     operations = t.operations.map(o => o.copy(body = substitute(o.body, sigma))),
+    operationTyping = t.operationTyping.map(o => o.copy(arguments = o.arguments.map {
+      case PolymorphicArgument.Kind(Annotations.Argument.Evidence(Annotations.Proof.Checked(w))) =>
+        PolymorphicArgument.Kind(Annotations.Argument.Evidence(Annotations.Proof.Checked(w.substitute(sigma))))
+      case a => a
+    })),
     evidence = t.evidence.map(_.substitute(sigma)), residuals = t.residuals.filterNot(o => sigma.contains(o.name)))
   def substitute(v: CheckedValue, sigma: Map[String, Witness]): CheckedValue = v.copy(
     children = v.children.map(substitute(_, sigma)), body = v.body.map(substitute(_, sigma)),
@@ -46,6 +51,10 @@ object Elaboration {
     }
     def term(t: CheckedTerm, bindings: Map[String, Binding], regions: Set[String]): Unit = {
       t.evidence.foreach(witness(_, bindings, regions))
+      t.operationTyping.foreach(_.arguments.foreach {
+        case PolymorphicArgument.Kind(Annotations.Argument.Evidence(Annotations.Proof.Checked(w))) => witness(w, bindings, regions)
+        case _ => ()
+      })
       t.values.foreach(value(_, bindings, regions))
       t.source match {
         case _: Term.Perform if t.evidence.size != 1 => throw Diagnostic("A_Do is missing its evidence argument")
@@ -65,7 +74,15 @@ object Elaboration {
           val children = if t.source.isInstanceOf[Term.LetRec] then t.children.drop(1) else t.children
           children.foreach(term(_, bindings, regions))
       }
-      t.operations.foreach(o => term(o.body, bindings, regions))
+      t.operations.foreach { o =>
+        var rs = regions; var bs = bindings
+        o.source.typeParameters.foreach {
+          case (n, ParameterKind.Annotation(Annotations.Kind.Region)) => rs += n
+          case (n, ParameterKind.Annotation(Annotations.Kind.Evidence(a, d, b))) => bs += n -> Binding(n, Constraint(a, b), d)
+          case _ => ()
+        }
+        term(o.body, bs, rs)
+      }
     }
     term(root, Map.empty, Set.empty)
   }

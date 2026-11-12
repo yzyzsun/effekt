@@ -76,7 +76,10 @@ translation correct.
 Native `interface File { def read(): Int def close(): Unit }` headers and
 `with h: File { ... }` implementations are accepted. Parameterized interface
 declarations/explicit instantiations and multiple value arguments are also
-supported; each implementation still has monomorphic operation signatures.
+supported. Individual operations now have explicit typelike telescopes;
+handler clauses may inherit them from the declared signature. Interfaces may
+also declare complete ATM answer contracts. See
+[polymorphic operations](POLYMORPHIC-OPERATIONS.md).
 The checker resolves declarations in the top-level environment and verifies any repeated implementation annotations
 against them. Missing/extra/duplicate clauses and wrong arity are rejected.
 An absent return clause expands to an identity clause with a fresh binder.
@@ -320,11 +323,16 @@ repairs above:
    Capability abstraction also remains a surface convenience that binds both
    the region and a capability value. A complete target translation must make
    this elaboration explicit as well.
-2. **Polymorphic operation-signature binders remain unsupported.** Explicit
-   `Reg`, `Dist`, `Cty`, `Ev`, and `ATC` quantification/application are now checked,
-   alongside existing type, predicate, effect and capability forms. This does
-   not add quantifiers to individual operation clauses or implement every
-   declarative computation rule for opaque effects.
+2. **Generic computation checking remains partial.** Operation
+   signatures now quantify over value types, predicates, effects, `Reg`,
+   `Dist`, `Cty`, `Ev`, and `ATC`; clauses inherit and check under those
+   binders. Outside strict mode, known opaque effects are checked directly
+   using `T_App`, `T_LetPure` and `T_LetEVar`; branches preserve that effect.
+   This does not implement arbitrary abstract-effect composition or abstract
+   ATC result projections. The runnable Section 5.1 modular variants use weaker,
+   effect-only operation signatures; they do not validate the restored
+   context-polymorphic signatures or their handler. See the separate
+   [implementation and example audit](POLYMORPHIC-OPERATIONS.md).
 3. **Abstract result projections have a backend restriction.** Direct Lifted
    lowering supports computation variables via value-type parameters, but an
    abstract ATC application used as a computation's result needs a known value
@@ -351,8 +359,11 @@ The explicit annotation path now checks dependent kinds, scoped aliases,
 evidence endpoints, distance equality, and ATC plugging. Core independently
 checks kind applications and symbolic ATC depths; Lifted receives evidence
 parameters as runtime arguments. Remaining target work includes the literal
-Definition 17 translation and polymorphic operation signatures, with a complete
-independent declarative checker.
+Definition 17 translation and generic computation checking, with a complete
+independent declarative checker. Polymorphic operation signatures are now
+supported; [the Section 5.1 audit](POLYMORPHIC-OPERATIONS.md#section-51-check)
+distinguishes the accepted effect-only variants from the unresolved original
+context-polymorphic handler and helper.
 
 Symbolic-distance ATC **inference** is a separate matter: rejecting it agrees
 with supplemental Section 3.3, page 37. ATC abstraction was identified

@@ -137,6 +137,7 @@ object AtmReference {
     }
     case Syntax.Term.AnnotatedPerform(c, op, arg, _, _) => term(Syntax.Term.Perform(c, op, arg), env)
     case Syntax.Term.SingleAnnotatedPerform(c, op, arg, _) => term(Syntax.Term.Perform(c, op, arg), env)
+    case Syntax.Term.PolymorphicPerform(call, _) => term(call, env)
     case Syntax.Term.Perform(receiver, operation, argument) =>
       val identity = env.values.get(receiver) match {
         case Some(Value.Capability(id)) => id

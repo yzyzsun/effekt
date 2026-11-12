@@ -40,7 +40,7 @@ object LiftedLowering {
     private val declarations = scala.collection.mutable.ListBuffer.empty[L.Declaration]
     private val externs = scala.collection.mutable.ListBuffer.empty[L.Extern]
     private val annotations = scala.collection.mutable.ListBuffer.empty[Annotation]
-    private val interfaces = scala.collection.mutable.Map.empty[List[String], InterfaceInfo]
+    private val interfaces = scala.collection.mutable.ListBuffer.empty[(List[String], InterfaceInfo, List[L.BlockType.Function])]
     private var dataDeclarations = Map.empty[String, Syntax.DataDeclaration]
     private val equalityFunctions = scala.collection.mutable.Map.empty[String, Id]
     private val definitions = scala.collection.mutable.ListBuffer.empty[L.Definition]
@@ -85,16 +85,65 @@ object LiftedLowering {
 
     private def interface(ops: List[Signature], env: Env): (L.BlockType.Interface, InterfaceInfo) = {
       val sorted = ops.sortBy(_.name)
-      val info = interfaces.getOrElseUpdate(sorted.map(_.name), {
+      val parameters = scala.collection.mutable.ListBuffer.empty[Id]
+      val actuals = scala.collection.mutable.ListBuffer.empty[L.ValueType]
+      // Abstract closed parts of method signatures into interface parameters.
+      // Parts mentioning a method's own type variables retain their structure.
+      // This lets structurally compatible capability families share a nominal
+      // Lifted interface without pretending that P[A] is a first-order type.
+      def valueType(t: L.ValueType, bound: Set[Id]): L.ValueType = {
+        if (L.freeTypeVariables(t) intersect bound).isEmpty then {
+          val id = Id("InterfaceParameter"); parameters += id; actuals += t
+          L.ValueType.Var(id)
+        } else t match {
+          case _: L.ValueType.Var => t
+          case L.ValueType.Data(n, args) => L.ValueType.Data(n, args.map(valueType(_, bound)))
+          case L.ValueType.Boxed(b) => L.ValueType.Boxed(blockType(b, bound))
+        }
+      }
+      def blockType(t: L.BlockType, bound: Set[Id]): L.BlockType = t match {
+        case f: L.BlockType.Function =>
+          val inner = bound ++ f.tparams
+          f.copy(vparams = f.vparams.map(valueType(_, inner)), bparams = f.bparams.map(blockType(_, inner)), result = valueType(f.result, inner))
+        case L.BlockType.Interface(n, args) => L.BlockType.Interface(n, args.map(valueType(_, bound)))
+      }
+      val methods = sorted.map(op => blockType(operationType(op, env), Set.empty).asInstanceOf[L.BlockType.Function])
+      val names = sorted.map(_.name)
+      val existing = interfaces.collectFirst {
+        case (`names`, info, previous) if info.parameters.size == parameters.size &&
+          previous.zip(methods).forall { (a, b) =>
+            LiftedValidation.same(L.Type.substitute(a, info.parameters.zip(parameters.map(L.ValueType.Var.apply)).toMap), b)
+          } => info
+      }
+      val info = existing.getOrElse {
         val id = Id("AtmOperations")
-        val parameters = sorted.flatMap(_ => List(Id("P"), Id("R")))
         val properties = sorted.map(op => op.name -> Id("atm_" + op.name)).toMap
-        declarations += L.Declaration.Interface(id, parameters, sorted.zipWithIndex.map { (op, i) =>
-          L.Property(properties(op.name), function(List(L.ValueType.Var(parameters(2 * i))), L.ValueType.Var(parameters(2 * i + 1)), 1))
-        })
-        InterfaceInfo(id, parameters, properties)
-      })
-      (L.BlockType.Interface(info.id, sorted.flatMap(o => List(target(o.argument, env), target(o.result, env)))), info)
+        val info = InterfaceInfo(id, parameters.toList, properties)
+        declarations += L.Declaration.Interface(id, info.parameters, sorted.zip(methods).map((op, t) => L.Property(properties(op.name), t)))
+        interfaces += ((names, info, methods))
+        info
+      }
+      (L.BlockType.Interface(info.id, actuals.toList), info)
+    }
+
+    private def operationParameters(sig: Signature, env: Env): (List[Id], List[L.EvidenceSymbol], Env) = {
+      val types = scala.collection.mutable.ListBuffer.empty[Id]
+      val evidence = scala.collection.mutable.ListBuffer.empty[L.EvidenceSymbol]
+      var inner = env
+      sig.typeParameters.foreach {
+        case (n, Syntax.ParameterKind.ValueType | Syntax.ParameterKind.Annotation(Annotations.Kind.Computation)) =>
+          val id = Id("OperationType"); types += id
+          inner = inner.copy(types = inner.types.updated(n, L.ValueType.Var(id)))
+        case (n, Syntax.ParameterKind.Annotation(_: Annotations.Kind.Evidence)) =>
+          val id = new L.EvidenceSymbol(); evidence += id
+          inner = inner.copy(evidence = inner.evidence.updated(n, id))
+        case _ => ()
+      }
+      (types.toList, evidence.toList, inner)
+    }
+    private def operationType(sig: Signature, env: Env): L.BlockType.Function = {
+      val (types, evidence, inner) = operationParameters(sig, env)
+      function(List(target(sig.argument, inner)), target(sig.result, inner), 1 + evidence.size, types = types)
     }
 
     private def target(t: Type, env: Env): L.ValueType = t match {
@@ -287,8 +336,15 @@ object LiftedLowering {
           val cap = env.caps.getOrElse(region, throw Diagnostic("Missing operation capability " + region))
           val block = env.values.get(receiver).map(L.Block.Unbox.apply).getOrElse(cap.block)
           val sig = cap.operations.find(_.name == op).get
-          val tpe = function(List(target(sig.argument, env)), target(sig.result, env), 1)
-          L.Stmt.App(L.Block.Member(block, cap.info.properties(op), tpe), Nil, List(proof(ev, env), value(a, env)))
+          val tpe = operationType(sig, env)
+          val types = typing.arguments.collect {
+            case Syntax.PolymorphicArgument.ValueType(t) => target(t, env)
+            case Syntax.PolymorphicArgument.Kind(Annotations.Argument.Computation(c)) => target(c.value, env)
+          }
+          val evidence = typing.arguments.collect {
+            case Syntax.PolymorphicArgument.Kind(Annotations.Argument.Evidence(Annotations.Proof.Checked(w))) => proof(w, env)
+          }
+          L.Stmt.App(L.Block.Member(block, cap.info.properties(op), tpe), types, (proof(ev, env) :: evidence) :+ value(a, env))
         case N.Handle(region, edge, body, returned, onReturn, operations) =>
           val ops = operations.map(_.signature)
           val (capType, info) = interface(ops, env)
@@ -301,8 +357,9 @@ object LiftedLowering {
             term(onReturn, env.bind(returned, L.Expr.ValueVar(retId, target(body.tpe.value, env)))))
           val clauses = operations.sortBy(_.signature.name).map { op =>
             val sig = op.signature
-            val arg = Id("atmOpArg"); val resume = Id("atmResume"); val argType = target(sig.argument, env)
-            val resumeArg = target(sig.result, env); val resumeResult = target(sig.initialAnswer.value, env)
+            val (types, parameters, scope) = operationParameters(sig, env)
+            val arg = Id("atmOpArg"); val resume = Id("atmResume"); val argType = target(sig.argument, scope)
+            val resumeArg = target(sig.result, scope); val resumeResult = target(sig.initialAnswer.value, scope)
             val ev = new L.EvidenceSymbol()
             val resumeType = function(List(resumeArg), resumeResult, 1)
             val x = Id("atmResumeArg")
@@ -310,9 +367,9 @@ object LiftedLowering {
             // expects an EV-accepting resumption, so this adapter supplies Here.
             val plainResume = L.Expr.Box(L.Block.BlockLit(Nil, List(L.Param.ValueParam(x, resumeArg)),
               L.Stmt.App(L.Block.BlockVar(resume, resumeType), Nil, List(L.Here(), L.Expr.ValueVar(x, resumeArg)))))
-            val clause = term(op.body, env.bind(op.parameter, L.Expr.ValueVar(arg, argType)).bind(op.continuation, plainResume))
-            L.Operation(info.properties(sig.name), L.Block.BlockLit(Nil,
-              List(L.Param.EvidenceParam(ev), L.Param.ValueParam(arg, argType)),
+            val clause = term(op.body, scope.bind(op.parameter, L.Expr.ValueVar(arg, argType)).bind(op.continuation, plainResume))
+            L.Operation(info.properties(sig.name), L.Block.BlockLit(types,
+              ((ev :: parameters).map(L.Param.EvidenceParam.apply)) :+ L.Param.ValueParam(arg, argType),
               L.Stmt.Shift(L.Evidence(List(L.Lift.Var(ev))), L.Block.BlockLit(Nil, List(L.Param.BlockParam(resume, resumeType)), clause))))
           }
           L.Stmt.Handle(handled, List(L.Implementation(capType, clauses)), ret, target(t.tpe.value, env))

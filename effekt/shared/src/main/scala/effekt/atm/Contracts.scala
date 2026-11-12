@@ -155,6 +155,14 @@ object Contracts {
       term(o.body)
     }
     def term(t: Term): Unit = t match {
+      case Term.PolymorphicPerform(call, args) =>
+        term(call)
+        args.flatten.foreach {
+          case PolymorphicArgument.ValueType(t) => ty(t)
+          case PolymorphicArgument.Kind(a) => annotation(a)
+          case PolymorphicArgument.AnswerEffect(e) => effect(e)
+          case _: PolymorphicArgument.Predicate => found = true
+        }
       case Term.AnnotationAlias(_, a, b) => annotation(a); term(b)
       case Term.AnnotatedPerform(_, _, a, _, c) => value(a); c.foreach(k => annotation(Annotations.Argument.Context(k)))
       case Term.SingleAnnotatedPerform(_, _, a, _) => value(a)
@@ -175,6 +183,7 @@ object Contracts {
     p.typeAliases.foreach(a => ty(a._2))
     p.interfaces.foreach(_.operations.foreach { o =>
       ty(o.argument); ty(o.result); if o.returned.nonEmpty then found = true
+      o.answers.foreach((a, b) => { comp(a); comp(b) })
     })
     comp(p.result); term(p.body); found
   }

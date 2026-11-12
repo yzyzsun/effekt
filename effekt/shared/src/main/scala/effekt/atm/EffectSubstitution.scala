@@ -34,9 +34,7 @@ object EffectSubstitution {
     case Type.AbstractResult(f) => free(Annotations.abstractComputation(f))
     case Type.PredicatePoly(_, _, body) => free(body)
     case Type.Refined(_, base, _) => free(base)
-    case Type.CapabilityPoly(_, ops, body, _, _, obligations) => free(body) ++ ops.flatMap { op =>
-      free(op.argument) ++ free(op.result) ++ free(op.initialAnswer) ++ free(op.finalAnswer)
-    }
+    case Type.CapabilityPoly(_, ops, body, _, _, obligations) => free(body) ++ ops.flatMap(op => free(OperationSignatures.scheme(op)))
     case Type.EffectPoly(name, body, bound) => (free(body) - name) ++ free(bound)
     case _ => Set.empty
   }

@@ -1,0 +1,31 @@
+// Section 5.1 modular helper, repaired: the invocation alone applies K.
+// File I/O is mocked. Operation clauses use T_LetEVar before returning a wrapper.
+type OpenAnswer = (Open) =>[top] Int
+type ClosedAnswer = (Closed) =>[top] Int
+interface File {
+  def read[F: Eff](): Int / (OpenAnswer / F => OpenAnswer / F)
+  def close[F: Eff](): Unit / (ClosedAnswer / F => OpenAnswer / F)
+}
+
+def main(): Int = {
+  // A capability parameter already binds its region x, so the paper's X1
+  // is supplied by x rather than quantified a second time. The remaining
+  // parameters correspond to X2, X3, X4, X5, and X6, respectively.
+  val f = fun (x: File) {
+    fun [S: Reg, D: Dist, K: ATC(D), E: Ev(S, D, x), F: Eff] {
+      fun () at [S]: Unit / (K[ClosedAnswer / F] => K[OpenAnswer / F]) {
+        x.close[E; K][F]()
+      }
+    }
+  };
+  val run = try {
+    val y = h.read[refl; []][pure]()
+    f(h)[h][0][[]][refl(h)][pure]()
+    y
+  } with h: File {
+    def read() = { val next = resume(42); fun (s) { next(token(Open)) } }
+    def close() = { val next = resume(()); fun (s) { next(token(Closed)) } }
+    return x => fun (s) { x }
+  }: OpenAnswer;
+  run(token(Open))
+}

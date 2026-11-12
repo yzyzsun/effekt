@@ -1,0 +1,20 @@
+// Section 5.1 effect-polymorphic file signatures with T_LetEVar clauses.
+// Resume at the declared abstract effect, then return a pure state wrapper.
+type OpenAnswer = (Open) =>[top] Int
+type ClosedAnswer = (Closed) =>[top] Int
+interface File {
+  def read[F: Eff](): Int / (OpenAnswer / F => OpenAnswer / F)
+  def close[F: Eff](): Unit / (ClosedAnswer / F => OpenAnswer / F)
+}
+def main(): Int = {
+  val run = try {
+    val y = h.read[pure]()
+    h.close[pure]()
+    y
+  } with h: File {
+    def read() = { val next = resume(42); fun (s) { next(token(Open)) } }
+    def close() = { val next = resume(()); fun (s) { next(token(Closed)) } }
+    return x => fun (s) { x }
+  }: OpenAnswer;
+  run(token(Open))
+}

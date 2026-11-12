@@ -142,9 +142,10 @@ not assumed axioms; recursive calls must decrease on a direct recursive field.
 They do not provide automatic induction or invariant inference. Functions are
 projected to unit in logical datatype views; runtime equality on any datatype
 containing functions is rejected. General region-polymorphic datatype fields,
-computation/ATC/evidence/distance kinds and polymorphic operation signatures
-remain incomplete. See [ARM.md](ARM.md) for syntax and [FIDELITY.md](FIDELITY.md)
-for the paper boundary.
+arbitrary abstract-effect composition, and abstract ATC result projections
+remain incomplete. Opaque-effect application and let checking, explicit kinded parameters and polymorphic
+operation signatures are supported. See [ARM.md](ARM.md) for syntax and
+[FIDELITY.md](FIDELITY.md) for the paper boundary.
 
 ## Inference boundary examples
 
@@ -222,11 +223,11 @@ The seven motivating-example groups are separate from the archived table's 81 ro
 | ATM introduction | Illustration of an answer-type change, not a full transcription |
 | Nested lexical ATM | Regression for composed evidence and depth-two ATC; exact paper program remains to be mapped |
 | File management | Partial token protocol; complete nested state-passing handlers remain to be ported |
-| Polymorphic close helper | Unported; needs the full kinded/evidence/ATC interface and polymorphic operation contracts |
+| Polymorphic close helper | Repaired translation accepted and executed at distances zero/one and with a non-pure outer effect; signatures and clause order are corrected as recorded in [the audit](POLYMORPHIC-OPERATIONS.md#section-51-check) |
 | Nested state refinements | Unported; preserve both handlers and establish result exactly `3` |
 | GUI interactor | Unported; nested file/GUI state handlers and invalid ordering cases remain |
 
-## The other 31 local examples
+## The other 36 local examples
 
 Together with the 52 ARM files, the six nested-handler examples and the 20
 boundary examples above, this lists
@@ -262,16 +263,25 @@ not additional migrated paper benchmarks.
 | [`multishot.effekt`](../../examples/atm/multishot.effekt) | Accepted: invoke one captured continuation more than once |
 | [`nested-outer.effekt`](../../examples/atm/nested-outer.effekt) | Accepted: invoke an outer handler across an inner delimiter |
 | [`polymorphic-callback.effekt`](../../examples/atm/polymorphic-callback.effekt) | Accepted: callback contract at an abstract capability region |
+| [`polymorphic-operations.effekt`](../../examples/atm/polymorphic-operations.effekt) | Accepted: value/computation-polymorphic operations with inherited handler binders; returns `42` |
 | [`refinement-polymorphic.effekt`](../../examples/atm/refinement-polymorphic.effekt) | Accepted: explicit rigid value-type and refinement-predicate polymorphism |
 | [`repeatable-effect.effekt`](../../examples/atm/repeatable-effect.effekt) | Accepted with narrowed annotations: repeated callbacks with equal answer endpoints |
 | [`return-clause.effekt`](../../examples/atm/return-clause.effekt) | Accepted: nonidentity return clause on normal completion and resumption |
 | [`return-effects.effekt`](../../examples/atm/return-effects.effekt) | Accepted: the return clause invokes an outer capability after the inner delimiter exits |
+| [`section5-1-effect-file.effekt`](../../examples/atm/section5-1-effect-file.effekt) | Accepted: repaired generic file clauses using `T_LetEVar`; returns `42` |
+| [`section5-1-effect-nested.effekt`](../../examples/atm/section5-1-effect-nested.effekt) | Accepted: instantiate the file operations at non-pure `Int => Bool`; returns `true` |
+| [`section5-1-modular-file.effekt`](../../examples/atm/section5-1-modular-file.effekt) | Accepted effect-only variant: weaker operation signatures than the original modular example; returns `42` |
+| [`section5-1-modular-nested.effekt`](../../examples/atm/section5-1-modular-nested.effekt) | Accepted effect-only variant: the same helper invoked across one intervening handler; returns `42` |
 | [`stored-resumption.effekt`](../../examples/atm/stored-resumption.effekt) | Accepted: return and later invoke a resumption through its exact-region local arrow |
 
 The earlier local-function increment repaired ten examples: seven through language
 support and three through narrower generic annotations. The two earlier unsupported
-examples remain, alongside the explicit symbolic-distance limitation in `infer`. The current negatives are 21 ARM contracts and the invalid
-file protocol. `distribution-UNSAT.effekt` is accepted for the source-label reason
+examples remain, alongside the explicit symbolic-distance limitation in `infer`.
+The current negative example files are 21 ARM contracts and the invalid file
+protocol. The original Section 5.1 helper mismatch remains a negative unit test.
+The modular `.effekt` files above use weaker signatures and do not validate the
+restored context-polymorphic contract; its handler and helper remain unresolved.
+`distribution-UNSAT.effekt` is accepted for the source-label reason
 above; it is not a successful negative test.
 
 `local` functions are an explicit declarative form, not a rule
@@ -287,7 +297,7 @@ Java 27, sbt 1.9.7, Z3 5.1.0 and Chez 10.4.1. `EFFEKT_ATM_Z3` and
 `EFFEKT_ATM_CHEZ` select nondefault executables. Release/CI packaging is unfinished.
 
 ```sh
-# Check all 109 local examples against their separate expected categories.
+# Check all 114 local examples against their separate expected categories.
 python3 docs/atm/check_examples.py
 
 # Check available paper ports and retain all unported rows in the JSON report.

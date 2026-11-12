@@ -9,7 +9,8 @@ import Annotations.{Kind, Argument, Proof}
  * for elaboration to the independent region/evidence Core representation.
  */
 object Checker {
-  case class OperationTyping(signature: Signature, context: AnswerContext, inferred: Computation)
+  case class OperationTyping(signature: Signature, context: AnswerContext, inferred: Computation,
+                             arguments: List[PolymorphicArgument] = Nil)
   case class CheckedValue(source: Value, tpe: Type, captures: Set[String], children: List[CheckedValue] = Nil,
                           body: Option[CheckedTerm] = None, symbolic: Option[Logic.Expr] = None,
                           residuals: List[Obligation] = Nil, evidence: List[Witness] = Nil,
@@ -125,6 +126,9 @@ object Checker {
                                    // Resolved answer used only while elaborating named
                                    // capability contracts in an annotated function domain.
                                    capabilityAnswer: Option[Computation] = None,
+                                   // Declarative T_App/T_LetEVar checking for a
+                                   // known opaque effect, which has no pi(C).
+                                   opaqueEffectChecking: Boolean = false,
                                    delta: List[Binding] = Nil,
                                    types: Map[String, String] = Map.empty,
                                    aliases: Map[String, Type] = Map.empty,
@@ -190,7 +194,7 @@ object Checker {
         withCapability(name, identity, ops).copy(region = identity, delta = edge :: delta)
     }
 
-    private case class InterfaceSchema(parameters: List[String], operations: Map[String, Signature])
+    private case class InterfaceSchema(parameters: List[String], operations: Map[String, Signature], answers: Set[String])
     private var interfaces = Map.empty[String, InterfaceSchema]
 
     def check(program: Program): Either[Diagnostic, CheckedProgram] = try {
@@ -221,9 +225,10 @@ object Checker {
         val scope = i.typeParameters.zip(parameters).foldLeft(env) { case (e, (n, id)) => e.withType(n, id) }
         i.name -> InterfaceSchema(parameters, i.operations.map { op =>
           val unit = Computation(Type.Unit)
-          op.name -> resolveSignature(Signature(op.name, op.argument, op.result, unit, unit,
-            op.parameter, op.returned), scope)
-        }.toMap)
+          val (initial, result) = op.answers.getOrElse((unit, unit))
+          op.name -> resolveSignature(Signature(op.name, op.argument, op.result, initial, result,
+            op.parameter, op.returned, op.typeParameters), scope)
+        }.toMap, i.operations.filter(_.answers.nonEmpty).map(_.name).toSet)
       }.toMap
       val annotation = Option.unless(program.inferResult)(resolve(program.result, env))
       val checked = annotation.fold(infer(program.body, env, None))(checkTerm(program.body, _, env))
@@ -254,7 +259,7 @@ object Checker {
       case _ => Set.empty
     }
     private def free(op: Signature): Set[String] =
-      free(op.argument) ++ free(op.result) ++ free(op.initialAnswer) ++ free(op.finalAnswer)
+      free(OperationSignatures.scheme(op))
     private def free(tpe: Computation): Set[String] =
       if tpe.form.nonEmpty then Annotations.regions(tpe) else free(tpe.value) ++ free(tpe.effect)
     private def free(effect: Effect): Set[String] = effect match {
@@ -458,8 +463,12 @@ object Checker {
     private def namedOperations(ref: Type.Interface, env: Environment, answer: Option[Computation]): List[Signature] = {
       val declared = interfaceOperations(ref, env)
       if declared.isEmpty then Nil else {
-        val c = answer.getOrElse(fail(s"Named capability ${ref.name} needs an expected capability contract or an enclosing function result annotation"))
-        declared.map(_.copy(initialAnswer = c, finalAnswer = c))
+        declared.map { op =>
+          if interfaces(ref.name).answers(op.name) then op else {
+            val c = answer.getOrElse(fail(s"Named capability ${ref.name} needs an expected capability contract or an enclosing function result annotation"))
+            op.copy(initialAnswer = c, finalAnswer = c)
+          }
+        }
       }
     }
     private def capabilityOperations(ref: Type.Interface, region: String, expected: Option[Type.CapabilityPoly],
@@ -469,7 +478,8 @@ object Checker {
         val declared = interfaceOperations(ref, env)
         // Compare value signatures modulo dependent binders, while retaining
         // both ATM answer endpoints from the expected contract.
-        def values(o: Signature): Signature = o.copy(initialAnswer = Computation(Type.Unit), finalAnswer = Computation(Type.Unit))
+        def values(o: Signature): Signature = if interfaces(ref.name).answers(o.name) then o
+          else o.copy(initialAnswer = Computation(Type.Unit), finalAnswer = Computation(Type.Unit))
         require(TypeEquality.sameOperations(declared.map(values), required.map(values)),
           s"Capability parameter ${ref.name} does not match the expected interface operation signatures")
         required
@@ -522,9 +532,54 @@ object Checker {
       }
       mapper.signature(signature)
     }
+    private def hasDeclaredAnswers(op: Operation): Boolean =
+      op.interfaceName.exists(n => interfaces(n).answers(op.name))
+
+    private def parameterScope(parameters: List[(String, ParameterKind)], env: Environment,
+        identities: Option[List[(String, ParameterKind)]] = None): (List[(String, ParameterKind)], Environment) = {
+      require(parameters.map(_._1).distinct.size == parameters.size, "Duplicate operation type parameter")
+      var scope = env
+      val resolved = parameters.zipWithIndex.map { case ((name, k), index) =>
+        val id = identities.fold(fresh(name))(_(index)._1)
+        val kind = identities.fold(k match {
+          case ParameterKind.Annotation(k) => ParameterKind.Annotation(resolveKind(k, scope))
+          case ParameterKind.AnswerEffect(b) => ParameterKind.AnswerEffect(resolve(b, scope))
+          case other => other
+        })(_(index)._2)
+        // A telescope uses one typelike namespace. A new binder must not leave
+        // a differently kinded outer parameter accessible through another map.
+        scope = scope.copy(types = scope.types - name, aliases = scope.aliases - name,
+          effects = scope.effects - name, predicateNames = scope.predicateNames - name,
+          annotations = scope.annotations - name, annotationResiduals = scope.annotationResiduals - name)
+        scope = kind match {
+          case ParameterKind.ValueType => scope.withType(name, id)
+          case ParameterKind.AnswerEffect(b) => scope.withEffect(name, id, b)
+          case ParameterKind.Predicate(args) =>
+            args.foreach(Logic.validateSort(_, scope.logic)); scope.withPredicate(name, id, args)
+          case ParameterKind.Annotation(k) => scope.withKind(name, id, k)
+        }
+        (id, kind)
+      }
+      (resolved, scope)
+    }
     private def resolveSignature(op: Signature, env: Environment, inferredAnswer: Option[Computation] = None,
         declared: Option[Signature] = None, argumentAnnotated: Boolean = true,
-        resultAnnotated: Boolean = true, argumentAnnotations: List[Option[Type]] = Nil): Signature = {
+        resultAnnotated: Boolean = true, argumentAnnotations: List[Option[Type]] = Nil,
+        inheritAnswers: Boolean = false): Signature = {
+      val (parameters, scope) = parameterScope(op.typeParameters, env)
+      val aligned = declared.map { d =>
+        def telescope(o: Signature): Type = OperationSignatures.scheme(o.copy(argument = Type.Unit, result = Type.Unit,
+          initialAnswer = Computation(Type.Unit), finalAnswer = Computation(Type.Unit), parameter = None, returned = None))
+        require(TypeEquality.same(telescope(d), telescope(d.copy(typeParameters = parameters))),
+          s"Type parameters of ${op.name} do not match its interface")
+        OperationSignatures.align(d, parameters)
+      }
+      resolveMonomorphicSignature(op, scope, inferredAnswer, aligned, argumentAnnotated,
+        resultAnnotated, argumentAnnotations, inheritAnswers).copy(typeParameters = parameters)
+    }
+    private def resolveMonomorphicSignature(op: Signature, env: Environment, inferredAnswer: Option[Computation],
+        declared: Option[Signature], argumentAnnotated: Boolean, resultAnnotated: Boolean,
+        argumentAnnotations: List[Option[Type]], inheritAnswers: Boolean): Signature = {
       val arg = if argumentAnnotated then resolve(op.argument, env) else declared.get.argument
       declared.foreach(d => require(TypeEquality.same(arg, d.argument), s"Argument type of ${op.name} does not match its interface"))
       if argumentAnnotations.nonEmpty then {
@@ -547,10 +602,19 @@ object Checker {
         "Dependent operation results require an Int, Bool, Unit or logical pair type")
       val returned = op.returned.map(fresh)
       val inner = op.returned.zip(returned).foldLeft(scope) { case (e, (name, id)) => e.bindIdentity(name, result, id) }
+      def declaredAnswer(initial: Boolean): Computation = {
+        val d = declared.get
+        val c = if initial then d.initialAnswer else d.finalAnswer
+        val bound = d.parameter.zip(parameter).foldLeft(c) { case (c, (n, id)) => Contracts.substitute(c, n, Expr.Variable(id)) }
+        if initial then d.returned.zip(returned).foldLeft(bound) { case (c, (n, id)) => Contracts.substitute(c, n, Expr.Variable(id)) }
+        else bound
+      }
       // A contextual answer is already resolved in the enclosing scope. Do not
       // resolve its generative regions or refinement identities a second time.
-      op.copy(argument = arg, result = result, initialAnswer = inferredAnswer.getOrElse(resolve(op.initialAnswer, inner)),
-        finalAnswer = inferredAnswer.getOrElse(resolve(op.finalAnswer, scope)), parameter = parameter, returned = returned)
+      op.copy(argument = arg, result = result,
+        initialAnswer = if inheritAnswers then declaredAnswer(true) else inferredAnswer.getOrElse(resolve(op.initialAnswer, inner)),
+        finalAnswer = if inheritAnswers then declaredAnswer(false) else inferredAnswer.getOrElse(resolve(op.finalAnswer, scope)),
+        parameter = parameter, returned = returned)
     }
     private def operationArgument(op: Signature, argument: Expr): Signature = op.parameter.fold(op) { parameter =>
       op.copy(result = Contracts.substitute(op.result, parameter, argument),
@@ -682,15 +746,19 @@ object Checker {
       val left = actual.sortBy(_.name)
       val right = expected.sortBy(_.name)
       left.map(_.name) == right.map(_.name) && left.zip(right).forall { (a, b) =>
-        val id = fresh("operationArgument")
-        val x = Expr.Variable(id)
-        val context = Contracts.sort(b.argument).fold(logic)(s =>
-          logic.bind(id, s).assume(Contracts.member(b.argument, x)))
-        def result(o: Signature): Computation = {
-          val c = Computation(o.result, Effect.Change(o.initialAnswer, o.finalAnswer), o.returned)
-          o.parameter.fold(c)(Contracts.substitute(c, _, x))
+        if a.typeParameters.nonEmpty || b.typeParameters.nonEmpty then
+          subtype(OperationSignatures.scheme(a), OperationSignatures.scheme(b), bounds, logic)
+        else {
+          val id = fresh("operationArgument")
+          val x = Expr.Variable(id)
+          val context = Contracts.sort(b.argument).fold(logic)(s =>
+            logic.bind(id, s).assume(Contracts.member(b.argument, x)))
+          def result(o: Signature): Computation = {
+            val c = Computation(o.result, Effect.Change(o.initialAnswer, o.finalAnswer), o.returned)
+            o.parameter.fold(c)(Contracts.substitute(c, _, x))
+          }
+          subtype(b.argument, a.argument, bounds, logic) && subtype(result(a), result(b), bounds, context)
         }
-        subtype(b.argument, a.argument, bounds, logic) && subtype(result(a), result(b), bounds, context)
       }
     }
     private def subtype(actual: Computation, expected: Computation, bounds: Map[String, EffectBound], logic: Logic.Context): Boolean = {
@@ -722,7 +790,9 @@ object Checker {
     }
     private def adapt(tpe: Computation, inherited: Option[Computation], env: Environment): Computation = inherited match {
       case None =>
-        require(tpe.form.nonEmpty || tpe.effect == Effect.Pure, "A_App: an impure computation requires an inherited final answer")
+        require(tpe.form.nonEmpty || tpe.effect == Effect.Pure ||
+          (env.opaqueEffectChecking && tpe.effect.isInstanceOf[Effect.Variable]),
+          "A_App: an impure computation requires an inherited final answer")
         tpe
       case Some(answer) => tpe.effect match {
         case Effect.Pure => Computation(tpe.value, Effect.Change(answer, answer))
@@ -830,6 +900,11 @@ object Checker {
 
     private def checkValue(source: Value, expected: Type, env: Environment): CheckedValue = {
       val checked = (source, expected) match {
+        case (Value.Primitive("pair", List(a, b)), Type.Pair(x, y)) =>
+          val first = checkValue(a, x, env); val second = checkValue(b, y, env)
+          val expression = for p <- first.symbolic; q <- second.symbolic yield Expr.App("pair", List(p, q))
+          finishValue(CheckedValue(source, Type.Pair(first.tpe, second.tpe), first.captures ++ second.captures,
+            List(first, second), symbolic = expression))
         case (_, p: Type.CapabilityPoly) if namedLambda(source, env).nonEmpty =>
           namedAbstraction(namedLambda(source, env).get, Some(p), env)
         case (lambda @ (Value.FixedLambda(_, _, _, _, _) | Value.Lambda(_, _, _, _, None) |
@@ -1142,7 +1217,7 @@ object Checker {
             Contracts.instantiatePredicate(body, name, identities.map(_._2), formula)
           case other => fail(s"Cannot instantiate a predicate in ${show(other)}")
         }
-        CheckedValue(v, result, checked.captures, List(checked))
+        CheckedValue(Value.InstantiatePredicate(function, identities.map((_, id, s) => (id, s)), formula), result, checked.captures, List(checked))
       case Value.InstantiateEffect(function, effect) =>
         val actual = resolve(effect, env)
         val result = checked.tpe match {
@@ -1154,7 +1229,7 @@ object Checker {
             normalize(EffectSubstitution(body, name, actual), env.effectBounds)
           case other => fail(s"Cannot instantiate an answer effect in ${show(other)}")
         }
-        CheckedValue(v, result, checked.captures, List(checked))
+        CheckedValue(Value.InstantiateEffect(function, actual), result, checked.captures, List(checked))
       case _ => fail("Expected a resolved polymorphic application")
     }
 
@@ -1337,8 +1412,14 @@ object Checker {
       }
     }
 
-    private def checkTerm(term: Term, expected: Computation, env: Environment): CheckedTerm =
-      checkTermInMode(term, expected, env, finalAnswer(expected))
+    private def checkTerm(term: Term, expected: Computation, env: Environment): CheckedTerm = {
+      // T_App checks an opaque codomain directly; T_LetEVar permits a pure
+      // suffix. Neither rule needs (or invents) a final-answer projection.
+      // Strict mode continues to implement the printed partial algorithm.
+      val opaque = !strict && expected.form.isEmpty && expected.effect.isInstanceOf[Effect.Variable]
+      checkTermInMode(term, expected, env.copy(opaqueEffectChecking = opaque),
+        if opaque then None else finalAnswer(expected))
+    }
 
     private def inferMatch(source: Term, scrutinee: Value, cases: List[MatchCase], env: Environment,
         inherited: Option[Computation], expected: Option[Computation]): CheckedTerm = {
@@ -1380,12 +1461,22 @@ object Checker {
         patternBindings = branches.map(_._1)), env)
     }
 
-    // A_SubC synthesizes with inherited answer type pi(expected); checkTerm
-    // passes exactly that. The explicit mode exists only for match branches,
-    // which check each case under the mode inherited by the whole match.
+    // A_SubC uses pi(expected). The declarative opaque-effect case instead
+    // checks without a projection; match branches preserve the selected mode.
     private def checkTermInMode(term: Term, expected: Computation, env: Environment,
                                 inherited: Option[Computation]): CheckedTerm = {
       val checked = term match {
+        case Term.Let(name, binding, body) if expected.effect.isInstanceOf[Effect.Variable] && env.opaqueEffectChecking =>
+          val first = infer(binding, env, None)
+          val suffix = first.tpe.effect match {
+            case Effect.Pure => expected // T_LetPure
+            case e: Effect.Variable if TypeEquality.same(e, expected.effect) => expected.copy(effect = Effect.Pure) // T_LetEVar
+            case _ => fail("T_LetEVar: the binding must be pure or have the expected abstract effect")
+          }
+          val scope = env.copy(logic = first.logic).bind(name, first.tpe.value, first.symbolic)
+          val second = checkTerm(body, suffix, scope)
+          finishTerm(symbolicTerm(CheckedTerm(term, expected, first.captures ++ second.captures,
+            children = List(first, second)), env))
         case Term.Match(scrutinee, cases) => finishTerm(inferMatch(term, scrutinee, cases, env, inherited, Some(expected)))
         case Term.InferredHandle(cap, operations, body, returned, onReturn) =>
           finishTerm(inferHandler(cap, expected, operations, body, returned, onReturn, env, inherited))
@@ -1414,6 +1505,14 @@ object Checker {
         checked.children.flatMap(_.residuals) ++ checked.operations.flatMap(_.body.residuals)).distinct)
     }
     private def inferTerm(term: Term, env: Environment, inherited: Option[Computation]): CheckedTerm = term match {
+      case _: Term.PolymorphicPerform =>
+        def unpack(t: Term, args: List[List[PolymorphicArgument]]): CheckedTerm = t match {
+          case Term.PolymorphicPerform(call, as) => unpack(call, args ++ as)
+          case Term.Perform(c, op, arg) => inferOperation(c, op, arg, None, None, env, inherited, args)
+          case Term.AnnotatedPerform(c, op, arg, ev, ctx) => inferOperation(c, op, arg, ev, ctx, env, inherited, args)
+          case _ => fail("Malformed polymorphic operation invocation")
+        }
+        unpack(term, Nil)
       case Term.Match(scrutinee, cases) => inferMatch(term, scrutinee, cases, env, inherited, None)
       case Term.AnnotationAlias(name, definition, body) =>
         val (alias, residuals) = resolveArgument(definition, env)
@@ -1465,6 +1564,8 @@ object Checker {
           return symbolicTerm(CheckedTerm(term, second.tpe, first.captures ++ second.captures,
             children = List(first, second)), env)
         val effect = (first.tpe.effect, second.tpe.effect) match {
+          case (Effect.Pure, e: Effect.Variable) if env.opaqueEffectChecking => e // T_LetPure
+          case (e: Effect.Variable, Effect.Pure) if env.opaqueEffectChecking => e // T_LetEVar
           case (Effect.Change(middle, finalAnswer), Effect.Change(initial, actual)) if refined =>
             require(answerSubtype(actual, middle, env.copy(logic = second.logic)), "Sequential refined answer types do not compose")
             Effect.Change(initial, finalAnswer)
@@ -1553,17 +1654,18 @@ object Checker {
      * all arguments, clauses, evidence, residuals, and scope-exit conditions.
      * Refinements are forgotten in the proposed value type, never assumed.
      */
-    private type OperationResults = Map[String, Map[String, Type]]
+    private type OperationResults = Map[String, Map[String, Signature]]
     private def handlerResultValue(cap: String, operations: List[Operation], body: Term,
         returned: String, onReturn: Term, env: Environment, headers: OperationResults): Type = {
       val results = operations.map { op =>
         val declared = declaredSignature(op, env)
-        val argument = if op.argumentAnnotated then resolve(op.argument, env) else declared.get.argument
-        val result = if op.resultAnnotated then resolve(op.result, env.bind(op.parameter, argument)) else declared.get.result
-        op.name -> Contracts.erase(result)
+        val unit = Computation(Type.Unit)
+        val signature = resolveSignature(op.copy(answers = Some((unit, unit))).signature.copy(parameter = Some(op.parameter)),
+          env, Some(unit), declared, op.argumentAnnotated, op.resultAnnotated, op.argumentAnnotations)
+        op.name -> signature
       }.toMap
-      // A header records only result types. It must not impersonate a checked
-      // capability, or allow the new handler's name to escape through a value.
+      // These unchecked headers are used only to project result types. They
+      // must not impersonate a checked capability or let its name escape.
       val inner = env.copy(values = env.values - cap, names = env.names - cap)
       val bodyValue = projectedValue(body, inner, headers.updated(cap, results))
       val result = projectedValue(onReturn, env.bind(returned, bodyValue), headers - returned)
@@ -1601,9 +1703,9 @@ object Checker {
           case _ => unsupported()
         }
       }
-      def operation(receiver: String, name: String): Type = {
+      def operation(receiver: String, name: String, arguments: List[List[PolymorphicArgument]] = Nil): Type = {
         val header = if env.values.contains(receiver) then None else headers.get(receiver)
-        header match {
+        val signature = header match {
           case Some(ops) => ops.getOrElse(name, fail(s"Unknown operation $receiver.$name"))
           case None =>
             val identity = env.values.get(receiver) match {
@@ -1613,14 +1715,28 @@ object Checker {
             }
             val op = env.capabilities.getOrElse(identity, fail(s"Unknown capability $receiver"))
               .find(_.name == name).getOrElse(fail(s"Unknown operation $receiver.$name"))
-            Contracts.erase(op.result)
+            op
         }
+        val args = if signature.typeParameters.isEmpty then Nil else arguments
+        require(signature.typeParameters.size == args.size, s"Wrong number of type arguments for operation $name")
+        val instance = args.foldLeft(CheckedValue(Value.Variable("operation#projection"), OperationSignatures.scheme(signature), Set.empty)) {
+          (v, as) => instantiateBare(v, as, env)
+        }
+        Contracts.erase(OperationSignatures.signature(name, instance.tpe).result)
       }
       def same(results: List[Type]): Type = results match {
         case first :: rest if rest.forall(TypeEquality.same(_, first)) => first
         case _ => unsupported()
       }
       term match {
+        case _: Term.PolymorphicPerform =>
+          def unpack(t: Term, args: List[List[PolymorphicArgument]]): Type = t match {
+            case Term.PolymorphicPerform(call, as) => unpack(call, args ++ as)
+            case Term.Perform(c, op, _) => operation(c, op, args)
+            case Term.AnnotatedPerform(c, op, _, _, _) => operation(c, op, args)
+            case _ => unsupported()
+          }
+          unpack(term, Nil)
         case Term.Return(v) => result(v)
         case Term.Let(name, binding, body) =>
           val t = projectedValue(binding, env, headers)
@@ -1665,7 +1781,7 @@ object Checker {
 
     private def inferOperation(receiver: String, operation: String, argument: Value,
         evidence: Option[Proof], explicitContext: Option[AnswerContext], env: Environment,
-        inherited: Option[Computation]): CheckedTerm = {
+                           inherited: Option[Computation], arguments: List[List[PolymorphicArgument]] = Nil): CheckedTerm = {
       // A value binder shadows a handler name in receiver position. Capability
       // aliases retain the original identity, including its answer contract.
       val cap = env.values.get(receiver) match {
@@ -1674,7 +1790,42 @@ object Checker {
         case None => env.capability(receiver)
       }
       val ops = env.capabilities.getOrElse(cap, fail(s"Unknown or out-of-scope capability $cap"))
-      val declared = ops.find(_.name == operation).getOrElse(fail(s"Unknown operation $cap.$operation"))
+      val scheme = ops.find(_.name == operation).getOrElse(fail(s"Unknown operation $cap.$operation"))
+      // Preserve the pre-existing one-argument evidence/ATC spelling when the
+      // selected operation has no typelike telescope.
+      if scheme.typeParameters.isEmpty && arguments.nonEmpty then {
+        require(arguments.size == 1 && evidence.isEmpty && explicitContext.isEmpty, "Wrong number of operation type arguments")
+        arguments.head.collectFirst { case PolymorphicArgument.Kind(Argument.Evidence(Proof.Variable(n))) => n }.foreach { n =>
+          require(env.annotations.contains(n), s"Unknown operation annotation $n")
+        }
+        val annotation = arguments.head.collectFirst {
+          case PolymorphicArgument.Kind(Argument.Evidence(p @ Proof.Variable(n))) if env.annotations.get(n).exists {
+            case _: Argument.Evidence => true; case _ => false
+          } => Left(p)
+          case PolymorphicArgument.Kind(Argument.Evidence(p)) if !p.isInstanceOf[Proof.Variable] => Left(p)
+          case PolymorphicArgument.Kind(Argument.Context(k @ AnswerContext.Variable(n))) if env.annotations.get(n).exists {
+            case _: Argument.Context => true; case _ => false
+          } => Right(k)
+          case PolymorphicArgument.Kind(Argument.Context(k)) if !k.isInstanceOf[AnswerContext.Variable] => Right(k)
+        }.getOrElse(fail("Operation annotation must have evidence or ATC kind; this operation has no type parameters"))
+        return annotation match {
+          case Left(p) => inferOperation(receiver, operation, argument, Some(p), None, env, inherited)
+          case Right(k) => inferOperation(receiver, operation, argument, None, Some(k), env, inherited)
+        }
+      }
+      require(arguments.size == scheme.typeParameters.size, s"Wrong number of type arguments for operation $operation: expected ${scheme.typeParameters.size}, found ${arguments.size}")
+      var instance = CheckedValue(Value.Variable("operation#signature"), OperationSignatures.scheme(scheme), Set.empty)
+      val actuals = arguments.map { alternatives =>
+        instance = finishValue(instantiateBare(instance, alternatives, env))
+        instance.source match {
+          case Value.InstantiateType(_, t) => PolymorphicArgument.ValueType(t)
+          case Value.InstantiateKind(_, a) => PolymorphicArgument.Kind(a)
+          case Value.InstantiateEffect(_, e) => PolymorphicArgument.AnswerEffect(e)
+          case Value.InstantiatePredicate(_, ps, p) => PolymorphicArgument.Predicate(ps, p)
+          case _ => fail("Unresolved operation type argument")
+        }
+      }
+      val declared = OperationSignatures.signature(operation, instance.tpe)
       val arg = checkValue(argument, declared.argument, env)
       val supplied = declared.parameter.fold(declared)(_ => operationArgument(declared, symbol(arg)))
       val resultIdentity = if supplied.returned.nonEmpty then Some(fresh("operationResult")) else None
@@ -1713,8 +1864,8 @@ object Checker {
       val target = if env.values.contains(receiver) then receiver else cap
       val checked = CheckedTerm(Term.Perform(target, operation, argument), result,
         arg.captures + cap, List(arg), operationArgument = Some(op.argument),
-        residuals = reconstruction.residuals, evidence = List(reconstruction.witness),
-        operationTyping = Some(OperationTyping(op, context, inferred)))
+        residuals = reconstruction.residuals ++ instance.residuals, evidence = List(reconstruction.witness),
+        operationTyping = Some(OperationTyping(op, context, inferred, actuals)))
       resultIdentity match {
         case None => symbolicTerm(checked, env)
         case Some(id) =>
@@ -1732,15 +1883,20 @@ object Checker {
         // Result-only clauses preserve the enclosing handler's answer. This is
         // surface annotation inference; the ordinary clause and body checks
         // below still validate the resulting explicit operation contract.
-        require(!strict || op.answers.nonEmpty,
+        require(!strict || op.answers.nonEmpty || hasDeclaredAnswers(op),
           s"Operation clause ${op.name} needs its answer types; strict mode inserts no default")
-        val inferred = Option.when(op.answers.isEmpty)(finalType)
+        val inheritedSignature = declaredSignature(op, env)
+        val inheritAnswers = op.answers.isEmpty && hasDeclaredAnswers(op)
+        val inferred = Option.when(op.answers.isEmpty && !inheritAnswers)(finalType)
         val annotated = op.copy(answers = op.answers.orElse(Some((finalType, finalType))))
         val signature = resolveSignature(annotated.signature.copy(parameter = Some(op.parameter)), env, inferred,
-          declaredSignature(op, env), op.argumentAnnotated, op.resultAnnotated, op.argumentAnnotations)
+          inheritedSignature, op.argumentAnnotated, op.resultAnnotated, op.argumentAnnotations, inheritAnswers)
+        if hasDeclaredAnswers(op) then inheritedSignature.foreach { d =>
+          require(TypeEquality.sameOperations(List(signature), List(d)), s"Answer contract of ${op.name} does not match its interface")
+        }
         op.copy(argument = signature.argument, result = signature.result,
           answers = Some((signature.initialAnswer, signature.finalAnswer)),
-          argumentIdentity = signature.parameter, returned = signature.returned)
+          argumentIdentity = signature.parameter, returned = signature.returned, typeParameters = signature.typeParameters)
       }
       val edge = Binding(fresh("handlerEvidence"), Constraint(identity, env.region), Distance.Numeral(1))
       val inner = env.enterHandler(cap, identity, ops.map(_.signature), edge)
@@ -1760,13 +1916,17 @@ object Checker {
       // A_HRet: check the clause against C1 with inherited answer type pi(C1).
       // A pure clause under an impure C1 is covered by A_ReturnF and A_SubC.
       val checkedReturn = checkTerm(onReturn, returnAnswer, returnEnv)
-      val checkedOps = ops.map { op =>
+      val checkedOps = ops.zip(operations).map { (op, source) =>
         require(op.parameter != op.continuation, "An operation argument and resumption need distinct names")
         // A_HOp binds k at the continuation arrow, which is the exact-region
         // arrow (y: T2) =>[rho] C1 of the surface language.
         val k = Type.FixedFunction(op.result, op.initialAnswer, env.capabilities.keySet, Some(env.region), op.returned)
-        val scope = op.argumentIdentity.fold(env.bind(op.parameter, op.argument))(id => env.bindIdentity(op.parameter, op.argument, id))
+        val (_, polymorphic) = parameterScope(source.typeParameters, env, Some(op.typeParameters))
+        val scope = op.argumentIdentity.fold(polymorphic.bind(op.parameter, op.argument))(id => polymorphic.bindIdentity(op.parameter, op.argument, id))
         val clause = checkTerm(op.body, op.finalAnswer, scope.bind(op.continuation, k))
+        val bound = op.typeParameters.map(_._1).toSet
+        require(!clause.residuals.exists(o => (o.constraint.free intersect bound).nonEmpty),
+          "A_HOp: a residual obligation mentions an operation type parameter")
         CheckedOperation(op, clause)
       }
       val cs = (checkedBody.captures - identity) ++ checkedReturn.captures ++ checkedOps.flatMap(_.body.captures)

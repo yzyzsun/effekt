@@ -84,7 +84,11 @@ have those arrows and can be stored. Return clauses may be effectful, as in the
 printed `A_HRet`. Fixed-region arrows are a declarative form, distinguished from the
 printed inference rules in [FIDELITY.md](FIDELITY.md). Three old effect-bound
 examples use explicit pure answer endpoints, with their original closed
-runtime witnesses retained. General opaque-effect polymorphism is not added.
+runtime witnesses retained. Known opaque-effect contracts can now be checked
+using declarative application and let rules; arbitrary effect composition
+remains unsupported. The original context-polymorphic Section 5.1 handler and
+helper remain unresolved; the runnable modular variants use weaker operation
+signatures. See [the Section 5.1 audit](POLYMORPHIC-OPERATIONS.md).
 
 In the archived 2026-11-06 inventory of 83 `.effekt` files, 58 are accepted, 22 are intentional negatives,
 and three remain unsupported. These counts include examples beyond the paper
@@ -147,18 +151,23 @@ remain distinct from a type-soundness or compiler-preservation proof.
 
 ## Remaining priorities
 
-1. **Complete the Definition 17 translation and polymorphic operation signatures.**
+1. **Complete the Definition 17 translation and generic computation checking.**
    Explicit region/distance/evidence/ATC/computation parameters now have checked
-   kinds and Core certificates. The implicit algorithm remains partial;
+   kinds and Core certificates, including individual operation signatures.
+   Declarative opaque-effect application/let checking is supported, while
+   the implicit algorithm remains partial;
    arbitrary abstract ATC result projections still require backend support.
    See [FIDELITY.md](FIDELITY.md).
 2. **Port the complete motivating programs with their original properties.**
    The reusable mock-backed Fig. 1 checks with explicit polymorphic parameters,
    evidence and ATCs. Its definition is checked once; contextual specialization
    was removed. See [FIDELITY.md](FIDELITY.md#reusable-helpers-explicit-polymorphism).
-   Remaining work includes the polymorphic close protocol, nested state handlers
+   The polymorphic close helper now has an accepted, repaired translation
+   with direct and intervening-handler executions; its changed signatures and
+   clause order are recorded in [the audit](POLYMORPHIC-OPERATIONS.md).
+   Remaining work includes nested state handlers
    with result exactly 3, and the file/GUI protocol. The current
-   nested state example still needs polymorphic operation contracts and its
+   nested state example still needs a port using polymorphic operation contracts and its
    exact relational invariant; local state-passing functions are now available.
 3. **Port the remaining 29 paper-only rows and audit translation equivalence.**
    The 52 pinned upstream ports are complete as benchmark instances. Audit the

@@ -49,6 +49,7 @@ Effekt lowering.
 | [Benchmark overview](BENCHMARKS.md) | Single-file outline of families, contracts, all current inputs, coverage and run commands |
 | [Artifact status](ARTIFACT-STATUS.md) | Current implementation and remaining priorities |
 | [Explicit annotations](ANNOTATIONS.md) | Region, distance, evidence, computation and ATC binders, arguments and checking |
+| [Polymorphic operations](POLYMORPHIC-OPERATIONS.md) | Signature telescopes, omitted handler binders, and the Section 5.1 check |
 | [Native syntax differences](SYNTAX-DIFFERENCES.md) | Restored syntax, remaining frontend gaps, and intentional ATM extensions |
 | [Paper fidelity](FIDELITY.md) | Rule correspondence, explicit extensions and missing target types/kinds |
 | [Direct Lifted backend](DIRECT-LIFTED.md) | Core-to-Lifted translation, evidence and validation boundary |
@@ -178,7 +179,9 @@ transition, including nested computation endpoints, as in
 Function-valued endpoints remain explicitly grouped:
 `Int / (((Int) => Int) => Bool)`. Effect sequences use `(E; F)`; the separator
 distinguishes them from answer transitions. Square brackets also delimit typelike instantiation, explicit operation annotations,
-and fixed-region contracts.
+and fixed-region contracts. In polymorphic operation calls, evidence and the
+ATC precede typelike arguments: `h.op[e; C][T, F](v)`. Either annotation may be
+omitted with `[e;]` or `[; C]`; omit the whole annotation group for inference.
 The old bracketed answer transitions are accepted for archived regression inputs.
 A dependent computation result can
 be written `(answer: Int) / ({r: Int | r == answer} => Int)`; `answer` scopes only
@@ -222,16 +225,21 @@ must agree with it, and implementations must provide every operation exactly
 once. Declarations are checked at top level, so a handler-local alias cannot
 change their meaning. Parameterized declarations such as `interface Reader[A]`
 and implementations such as `with h: Reader[Int]` are supported. Functions and
-operations can have multiple value parameters. Interfaces specify value
-signatures; each implementation still supplies or contextually infers its own
-ATM answer contract. Interface names do not introduce nominal capability types
+operations can have multiple value parameters. Individual operations can also
+quantify typelike parameters, such as `def echo[A](x: A): A`; their handler
+clauses can omit those binders and inherit them from the signature. Interfaces
+may specify complete ATM answer contracts, which implementations must satisfy;
+value-only declarations retain contextually inferred answers. See
+[polymorphic operations](POLYMORPHIC-OPERATIONS.md) for syntax and the Section 5.1
+check. Interface names do not introduce nominal capability types
 into the paper calculus. See [syntax differences](SYNTAX-DIFFERENCES.md) for
 the remaining native interface features.
 
 Capability parameters can use `f: File`, including `(f: File) => T` callback
 types and `fun (f: File) { value }` lambdas. The checker expands the declared
-operations internally. An expected capability type supplies their exact answer
-contracts; otherwise an enclosing consumer result annotation `C` supplies the
+operations internally. Explicit declared answer contracts are preserved. When
+the declaration omits answers, an expected capability type supplies them;
+without that context, an enclosing consumer result annotation `C` supplies the
 default `C => C` answers. This also works for effectful computations and `Cty`
 parameters. Ambiguous standalone named abstractions require an answer context
 or a structural annotation. See [capability parameters](ANNOTATIONS.md#binders-and-applications)
@@ -411,13 +419,15 @@ the explicit annotation forms now provide it. The old `replaceAnswer` function-c
 
 The removed scoped-capability spelling, scoped capability tails, answer-effect sequences, and
 `repeatable`/`after` bounds belong to the former prototype and are rejected.
-An opaque answer effect cannot be used where the paper's final-answer projection
-is undefined. Unrestricted effect quantification can still occur in types, but
-it does not enable computation rules with an unknown final-answer projection.
+The printed algorithm's final-answer projection is undefined on an opaque
+effect. Outside strict mode, a known `T / F` contract can be checked directly
+with the declarative application and `T_LetEVar` rules, without that projection.
+A pure prefix/suffix is supported; arbitrary composition of abstract effects
+is not. See [the Section 5.1 repair](POLYMORPHIC-OPERATIONS.md#section-51-check).
 
 The frontend covers the currently implemented source forms, not every kind/type
-constructor in the paper grammar. Polymorphic operation-signature binders, polymorphic datatypes and inference of
-unknown refinement predicates are not implemented. Higher-order value types,
+constructor in the paper grammar. Polymorphic datatypes and inference of unknown
+refinement predicates are not implemented. Higher-order value types,
 explicit type/predicate quantification, annotated recursion, logical pairs and
 lexical type aliases are supported. There is no termination proof for recursion.
 

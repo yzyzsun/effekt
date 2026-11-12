@@ -134,12 +134,6 @@ object TypeEquality {
   }
   private def operations(a: List[Signature], b: List[Signature], left: Binders, right: Binders): Boolean =
     a.size == b.size && a.sortBy(_.name).zip(b.sortBy(_.name)).forall { (x, y) =>
-      val lp = left.copy(terms = bind(x.parameter, left.terms))
-      val rp = right.copy(terms = bind(y.parameter, right.terms))
-      val lr = lp.copy(terms = bind(x.returned, lp.terms))
-      val rr = rp.copy(terms = bind(y.returned, rp.terms))
-      x.name == y.name && value(x.argument, y.argument, left, right) &&
-        value(x.result, y.result, lp, rp) && computation(x.initialAnswer, y.initialAnswer, lr, rr) &&
-        computation(x.finalAnswer, y.finalAnswer, lp, rp)
+      x.name == y.name && value(OperationSignatures.scheme(x), OperationSignatures.scheme(y), left, right)
     }
 }

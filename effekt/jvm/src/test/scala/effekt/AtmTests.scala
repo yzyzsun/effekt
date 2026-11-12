@@ -51,8 +51,10 @@ class AtmTests extends munit.FunSuite {
   test("scoped capability tails are not substituted for region constraints") {
     reject(source("multiple-capabilities"), "concrete evidence distance")
   }
-  test("opaque effects do not have a final-answer projection") {
-    reject(original("effect-polymorphic"), "final-answer projection is undefined")
+  test("the strict algorithm does not project a final answer from an opaque effect") {
+    val result = Parser.parse(original("effect-polymorphic")).flatMap(Checker.checkStrict)
+    assert(result.isLeft)
+    assert(result.swap.toOption.get.message.contains("final-answer projection is undefined"), result.toString)
   }
   test("a continuation cannot be returned through an ordinary arrow") { reject(original("stored-resumption"), "=>[top]") }
   test("A_HRet checks a return clause with inherited answer pi(C), so it may perform an outer operation") {
