@@ -1,73 +1,123 @@
-# Ξ Effekt
+# Answer-Type Modification for Lexical Effect Handlers
 
-## ATM research frontend in this checkout
+This artifact implements an experimental ATM frontend on top of Effekt v0.3.0.
+It checks `.effekt` programs using regions, evidence, and answer-type contexts,
+elaborates them to typed Core, and executes them through an adapted Lifted
+representation and the Chez Scheme backend. The native Effekt compiler is also
+included because the regression suite uses its JavaScript backend for
+differential checks.
 
-This working tree contains a separate ATM frontend using `.effekt` files, based on
-**Effekt v0.3.0**
-(`cd18ad896b9f1c856a9d6002fd0a5733e5cb9a15`). It implements a subset of the paper's
-region/evidence algorithm, with explicit fixed-region functions and effectful
-handler-return forms. Its default backend is the adapted historical Lifted IR
-and Chez. Select the ATM frontend through `effekt.atm.Main`.
+The submission archive contains source code, examples, tests, runtime libraries,
+and a JVM-only build. Kiama sources are included directly; the extracted archive
+does not require Git or submodule initialization. Run all commands below from
+the directory containing this README.
 
-For the complete benchmark outline in one file, read
-[BENCHMARKS.md](docs/atm/BENCHMARKS.md). Start with the [ATM guide](docs/atm/README.md),
-[artifact status](docs/atm/ARTIFACT-STATUS.md), and
-[paper-fidelity boundaries](docs/atm/FIDELITY.md). The verified 2026-11-06 snapshot
-has 58 accepted examples, 22 intentional negatives and three unsupported examples;
-all 52 pinned upstream ARM files have ports, with one documented upstream label discrepancy. See
-[example repairs](docs/atm/REJECTED-EXAMPLES.md),
-[paper coverage](docs/atm/PAPER-COVERAGE.md), and
-[validation](docs/atm/VALIDATION.md) for the distinct inventories and test results.
+## Requirements
 
-Run from this checkout with its pinned Kiama submodule, Java/sbt, Z3 and Chez
-available. The full differential suite also requires Node:
+| Tool | Purpose | Version used for validation |
+| --- | --- | --- |
+| JDK | Build and run the compiler | OpenJDK 27 |
+| sbt | Build tool | 1.9.7, pinned in `project/build.properties` |
+| Z3 | Refinement checking | 5.1.0 |
+| Chez Scheme | Execute compiled programs | 10.4.1 |
+| Node.js | JavaScript differential tests | 26.10.0 |
+
+The build downloads Scala 3.3.1 and its Maven dependencies. The first build
+requires Internet access unless those dependencies are already cached. The
+validated environment is macOS on ARM64; other platforms have not been checked
+for this submission. No performance measurements are reproduced by these tests.
+
+Make `java`, `sbt`, `z3`, `chez`, and `node` available on `PATH`. If Chez is named
+`scheme` on your system, set `EFFEKT_ATM_CHEZ=scheme`. Similarly,
+`EFFEKT_ATM_Z3` can select another Z3 executable. Node is needed for the full
+test suite, but not for the default ATM execution route.
+
+## Build and quick start
 
 ```sh
-sbt 'effektJVM/runMain effekt.atm.Main --run examples/atm/arm/state-easy-SAT.effekt'
-python3 docs/atm/check_examples.py
+sbt -batch 'effektJVM/compile'
+sbt -batch 'effektJVM/runMain effekt.atm.Main --check examples/atm/int-to-bool.effekt'
+sbt -batch 'effektJVM/runMain effekt.atm.Main --run examples/atm/int-to-bool.effekt'
 ```
 
-The first command prints `8`. These commands use the local implementation;
-the upstream npm package below does not contain this ATM work. Clean-checkout
-release packaging and CI validation remain unfinished.
+The check prints `Bool / pure`; execution prints `false`, in addition to sbt's
+own progress output. This example changes an integer answer to a Boolean answer.
 
-## Upstream Effekt overview
+## Run the regression suite
 
-Compared to other languages with effect handlers (and support for polymorphic effects) the Effekt language
-aims to be significantly more lightweight in its concepts.
-
-
-## Disclaimer: Use at your own risk
-
-**Effekt is a research-level language. We are actively working on it and the language (and everything else) is very likely to change.**
-
-Also, Effekt comes with no warranty and there are (probably) many bugs -- If this does not discourage you, feel free to
-play with it and give us your feedback :)
-
-## Upstream installation
-
-The following is the historical upstream installation guide. It installs an
-upstream release, not this v0.3.0-based research working tree. Use the local
-commands above for ATM.
-
-You need to have Java (>= 11) and Node (>= 12) and npm installed.
-
-The recommended way of installing Effekt is by running:
-
-```
-npm install -g https://github.com/effekt-lang/effekt/releases/latest/download/effekt.tgz
+```sh
+sbt -batch 'effektJVM/testOnly effekt.Atm*Tests'
 ```
 
-Alternatively, you can download the `effekt.tgz` file from [another release](https://github.com/effekt-lang/effekt/releases) and then run
+Expected result: **560 tests passed, 0 failed**. Allow several minutes for the
+suite, plus time for the first build. The tests cover parsing, typechecking,
+negative cases, Core validation, lowering, and execution. Applicable examples
+are compared with a reference evaluator and the native JavaScript backend;
+polymorphic operation schemes use the direct Chez backend because the legacy
+JavaScript emitter does not support those schemes.
 
-```
-npm install -g effekt.tgz
+For a smaller check of operation polymorphism and annotation syntax:
+
+```sh
+sbt -batch 'effektJVM/testOnly effekt.AtmParserTests effekt.AtmPolymorphicOperationTests effekt.AtmExplicitAnnotationTests'
 ```
 
-This will make the `effekt` command globally available. You can start the Effekt REPL by entering:
+Expected result: **93 tests passed, 0 failed**.
 
-```
-> effekt
+## Examples and compiler output
+
+Replace the example path in the quick-start command to run another program:
+
+| Example under `examples/atm/` | Feature | Execution output |
+| --- | --- | --- |
+| `int-to-bool.effekt` | Answer-type modification | `false` |
+| `multishot.effekt` | Multiple resumption calls | `true` |
+| `file-reusable.effekt` | Reusable file-protocol function | `42` |
+| `polymorphic-operations.effekt` | Operation-level type and computation parameters | `42` |
+| `section5-1-effect-nested.effekt` | Effect-polymorphic variant under an intervening handler | `true` |
+| `section5-1-modular-nested.effekt` | Modular helper with weaker, effect-only operation contracts | `42` |
+
+The Section 5.1 variants in this table do **not** validate the paper's original
+context-polymorphic signatures; see the limitations below. File operations in
+these examples are mocked rather than operating on real files.
+
+Other useful commands are:
+
+```sh
+sbt -batch 'effektJVM/runMain effekt.atm.Main --elaborate examples/atm/int-to-bool.effekt'
+sbt -batch 'effektJVM/runMain effekt.atm.Main --lifted examples/atm/int-to-bool.effekt'
+sbt -batch 'effektJVM/runMain effekt.atm.Main --check-json examples/atm/int-to-bool.effekt'
 ```
 
-You can find more information about the Effekt language and how to use it on the website (<https://effekt-lang.org>).
+`--elaborate` displays the typed Core; `--lifted` displays the backend input.
+`--check-json` reports acceptance or a diagnostic as JSON. `--check-strict`
+retains the printed inference algorithm's rejection where final-answer
+projection is undefined; ordinary `--check` additionally supports explicit
+declarative checking of opaque effects.
+
+The archive includes 114 `.effekt` examples, including intentional negative and
+unsupported cases. In particular, `arm/` contains 52 ARM ports. Some `-UNSAT`
+programs should be rejected. The `distribution-UNSAT.effekt` port is accepted:
+the upstream input has the same satisfiable assertion as its SAT counterpart.
+The `infer/boundary/` directory records inference limitations. Use the test
+suite's expectations rather than expecting every example to succeed.
+
+## Archive contents and licenses
+
+| Path in the submission archive | Contents |
+| --- | --- |
+| `effekt/` | Compiler sources and ATM regression tests |
+| `kiama/` | Vendored compiler support sources and their license |
+| `libraries/` | Standard libraries and Chez-Lift runtime |
+| `examples/atm/` | Example programs and negative cases |
+| `tests/fixtures/` | Source inputs required by regression tests |
+| `build.sbt`, `project/build.properties` | Minimal JVM build |
+| `SHA256SUMS` | Checksums of the packaged files |
+
+Internal documentation, repository history, editor state, build caches, and
+generated binaries are excluded from the submission archive. The repository
+checkout also contains development material that is not part of the archive.
+
+Effekt is distributed under the MIT license in `LICENSE`. Kiama is distributed
+under the Mozilla Public License 2.0 in `kiama/LICENSE`. Upstream copyright and
+license notices are retained in the source distribution.
