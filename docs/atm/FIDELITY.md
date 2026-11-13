@@ -293,19 +293,30 @@ types a term the printed rules do not:
 | `closeLet` inserts an existentially closed annotation when the body's type mentions the let-bound variable | rejected, as by the side condition of `A_Let`/`A_LetF` |
 | A handler in synthesis position gets a proposed answer type (`handlerResultValue`) | rejected: `A_Handle` is a checking rule |
 | An operation clause without answer types defaults to `C => C` | rejected |
-| An operation with an explicit ATC is typed without an inherited answer, giving an impure type under the empty mode | rejected: `pi(C) = Omega` |
 | A named function checked against an arrow at another region is eta-expanded | rejected: `S_Fun` needs equal regions |
 
 Explicit kind, evidence and ATC syntax, fixed-region functions and the other
 surface forms are unaffected; strict mode is about inserted annotations, not
 about the source language.
 
-On the 89 files under `examples/atm` (2026-11-13), default mode accepts 64 and
-rejects 25. Strict mode accepts 30 of the 64. Of the 34 it rejects, 31 need
-`closeLet`, 2 need a default clause answer and 1 needs a proposed handler
-answer. All 31 accepted ARM ports are among those that need `closeLet`: as
-written, none of them is accepted by the printed `A_Let` side condition, and
-each would need explicit closing annotations.
+In particular, strict mode implements `A_DoAnn` and `A_DoAnnF` for calls with
+explicit evidence and an ATC. Both check the evidence's region endpoints and
+the context's depth after instantiating the operation's type arguments and
+substituting its value argument. In empty inherited mode, `A_DoAnn` synthesizes
+`T' / (y. C[C1]) => C[C2]`. With inherited answer `F`, `A_DoAnnF` requires
+`C[C2] <: F` and returns `T' / (y. C[C1]) => F`. The unadapted operation
+contract is retained for Core validation; the context is erased during lowering.
+The earlier strict-mode rejection of an explicit ATC without an inherited
+answer was stale: the current synthesis rules do not require `pi(C) = Omega`
+when `Omega` is empty. An operation without an explicit ATC still needs an
+inherited answer for `A_Do`/`atc`.
+
+At strict mode's initial introduction on 2026-11-13, on the then-current 89
+files under `examples/atm`, default mode accepted 64 and rejected 25. Strict
+mode accepted 30 of the 64. Of the 34 it rejected, 31 needed `closeLet`, 2 needed
+a default clause answer and 1 needed a proposed handler answer. All 31 accepted
+ARM ports were among those that needed `closeLet`: as written, each needed
+explicit closing annotations to satisfy the printed `A_Let` side condition.
 
 ## Unresolved fidelity and coverage gaps
 

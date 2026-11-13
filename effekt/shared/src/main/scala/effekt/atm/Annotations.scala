@@ -16,7 +16,7 @@ object Annotations {
     // Bare refl uses the checking region without a source-level region name.
     case Current
     case Refl(region: String)
-    case Step(handler: String)
+    case Ev(handler: String)
     case Variable(name: String)
     case Compose(first: Proof, second: Proof)
     case Path(target: String)

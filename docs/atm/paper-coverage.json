@@ -1622,7 +1622,7 @@
       "remaining": "Original context-polymorphic signatures restored in the manuscript. The close handler and original helper typing remain unresolved. The modular ports use weaker effect-only signatures and do not validate the original contract; the calculus is unchanged. See POLYMORPHIC-OPERATIONS.md.",
       "port_sha256": {
         "examples/atm/section5-1-modular-file.effekt": "935185dd3eead0684ec0522ee544ba2b61ab7330d8ca3c37772b670485ff51fd",
-        "examples/atm/section5-1-modular-nested.effekt": "e51f676a47b82014b340f7bf7196a6d050fe10e033f04b0ab0827838bebe72ad",
+        "examples/atm/section5-1-modular-nested.effekt": "3daee1b6790f9c48b3f3813485bdaf85c4e751765505c7d2d41ef64baf67d1ba",
         "examples/atm/section5-1-effect-file.effekt": "826c96421189089ac7666efc8898332d3d897b17c826944e0e331eb19d782d89",
         "examples/atm/section5-1-effect-nested.effekt": "157f30864cc64846916639e218c2d9ba1bec8d46305479bd5ed1efd915217123"
       }

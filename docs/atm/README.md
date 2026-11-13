@@ -413,7 +413,10 @@ The paper algorithm is partial. In particular, an operation whose handler is
 outside an ordinary region-polymorphic function has a deferred witness with symbolic distance.
 `atc` cannot peel a variable number of layers, so an unannotated invocation is
 rejected, including inside an unused function. An explicit context and matching
-evidence supply a declarative alternative without assigning that distance zero. A function that installs its own handler is unaffected.
+evidence are checked by `A_DoAnn`/`A_DoAnnF`, including in strict mode, without
+assigning that distance zero. `A_DoAnn` synthesizes both answers when no final
+answer is inherited; `A_DoAnnF` checks the contextual final answer against the
+inherited one by subtyping. A function that installs its own handler is unaffected.
 The older supplement's page 37 identifies ATC abstraction as future work;
 the explicit annotation forms now provide it. The old `replaceAnswer` function-call extension has been removed.
 
@@ -453,7 +456,8 @@ explicitly. The retained legacy emitter uses finite answer sums and JavaScript
 | `A_Return*`, `A_Let*`, `A_SubC` | `inferTerm`, inherited-answer mode, `checkTerm`, `ascribe` |
 | `A_If*`, guarded join/meet | `Checker.guarded` |
 | `A_Do` | Evidence reconstruction, dependent substitution, `Evidence.atc` |
-| Explicit declarative invocation and kind instantiation | `Annotations`, `Checker.resolveArgument`, `inferOperation`; `Core.validate` checks scoped kinds and symbolic ATC depths |
+| `A_DoAnn`, `A_DoAnnF` | `Checker.inferOperation`, `resolveProof`, `resolveContext`: check explicit evidence and ATC depth, synthesize both answers, and use `adapt` for inherited-answer subtyping; supported in strict mode |
+| Kind instantiation and annotated invocation elaboration | `Annotations`, `Checker.resolveArgument`; `Core.validate` checks instantiated signatures, scoped evidence and symbolic ATC depths |
 | `A_Handle`, `A_HRet`, `A_HOp` | Fresh region/edge; residual scope check; return and operation clauses checked under `pi(C)`; continuation bound at the exact-region arrow |
 | `S_Fun`, `S_Refine`, `S_CPureImpure`, `S_CImpure` | `Checker.subtype`; sorted SMT verification conditions |
 | Printed algorithm without inserted annotations | `Checker.checkStrict`, `--check-strict`; see FIDELITY.md |

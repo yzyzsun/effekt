@@ -39,6 +39,8 @@ object Checker {
    * (the A_Let/A_LetF side condition) instead of being closed existentially,
    * a handler in synthesis position needs its answer type (A_Handle is a
    * checking rule), and every operation clause states its answer types.
+   * Explicit operation evidence and ATCs are checked by A_DoAnn/A_DoAnnF,
+   * including effectful synthesis without an inherited answer.
    */
   def checkStrict(program: Program): Either[Diagnostic, CheckedProgram] =
     new Session(RefinementSolver.default, strict = true).check(program)
@@ -663,7 +665,7 @@ object Checker {
     private def resolveProof(p: Proof, env: Environment): Reconstruction = p match {
       case Proof.Current => Reconstruction(Witness.Refl(env.region), Nil)
       case Proof.Refl(r) => Reconstruction(Witness.Refl(env.localRegion(r)), Nil)
-      case Proof.Step(h) =>
+      case Proof.Ev(h) =>
         val r = env.localRegion(h)
         val edge = env.delta.find(b => b.constraint.from == r && b.distance == Distance.Numeral(1))
           .getOrElse(fail(s"No in-scope handler edge for $h"))
@@ -1852,14 +1854,12 @@ object Checker {
       }
       observe.foreach(_(OperationInference(cap, operation, reconstruction, Right(context))))
       val initial = context.plug(op.initialAnswer)
-      // Extension: an explicit ATC determines both answers, so the operation
-      // can be typed without an inherited answer. The result is then impure
-      // under the empty mode, which the printed algorithm never produces
-      // (pi(C) = Omega), so strict mode rejects it.
-      require(!strict || inherited.nonEmpty, s"$cap.$operation needs an inherited final answer type; " +
-        "in strict mode an explicit ATC does not replace it (annotate the enclosing result)")
+      // A_DoAnn synthesizes both contextual answers under the empty mode.
+      // A_Do instead uses its inherited answer to reconstruct the context.
       val answer = if explicitContext.nonEmpty then context.plug(op.finalAnswer) else inherited.get
       val inferred = Computation(op.result, Effect.Change(initial, answer), resultIdentity)
+      // A_DoAnnF checks C[C2] <: F and replaces only the final answer by F.
+      // Keep the unadapted signature/context contract for Core validation.
       val result = if explicitContext.nonEmpty && inherited.nonEmpty then adapt(inferred, inherited, env) else inferred
       val target = if env.values.contains(receiver) then receiver else cap
       val checked = CheckedTerm(Term.Perform(target, operation, argument), result,

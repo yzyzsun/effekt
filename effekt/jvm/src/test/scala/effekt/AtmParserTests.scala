@@ -161,7 +161,7 @@ class AtmParserTests extends munit.FunSuite {
       "[E;]" -> "[evidence E]",
       "[refl]" -> "[evidence refl]",
       "[[]]" -> "[atc []]",
-      "[step(h)]" -> "[evidence step(h)]",
+      "[ev(h)]" -> "[evidence ev(h)]",
       "[layer(Int, Int, [])]" -> "[atc layer(Int, Int, [])]",
       "[K[J]]" -> "[atc K[J]]",
       "[; K]" -> "[atc K]") do {

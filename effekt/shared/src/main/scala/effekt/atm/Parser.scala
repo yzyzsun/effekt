@@ -437,7 +437,7 @@ object Parser {
       def atom(): Proof = current match {
         case "refl" | "zero" | "0" =>
           take(); if accept("(") then { val r = regionName(); expect(")"); Proof.Refl(r) } else Proof.Current
-        case "step" => take(); expect("("); val r = regionName(); expect(")"); Proof.Step(r)
+        case "ev" => take(); expect("("); val r = regionName(); expect(")"); Proof.Ev(r)
         case "path" => take(); expect("("); val r = regionName(); expect(")"); Proof.Path(r)
         case "(" => take(); val e = proof(); expect(")"); e
         case _ => Proof.Variable(identifier())

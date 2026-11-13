@@ -69,7 +69,7 @@ class AtmPolymorphicOperationTests extends munit.FunSuite {
     }
   }
   test("annotated polymorphic calls validate evidence and context depths") {
-    rejected(echo.replace("h.echo[Int](42)", "h.echo[step(h); []][Int](42)"), "incorrect region endpoints")
+    rejected(echo.replace("h.echo[Int](42)", "h.echo[ev(h); []][Int](42)"), "incorrect region endpoints")
     rejected(echo.replace("h.echo[Int](42)", "h.echo[refl; Int / (Int => [])][Int](42)"), "ATC depth differs")
   }
   test("legacy tag words may name operation typelike arguments") {
@@ -147,7 +147,7 @@ class AtmPolymorphicOperationTests extends munit.FunSuite {
     }
     def main(): Int = {
       def id(x: Int): Int = x
-      try { val g = h.probe[h, 1, step(h)](); g() } with h: Probe {
+      try { val g = h.probe[h, 1, ev(h)](); g() } with h: Probe {
         def probe() = resume(fun () { id(42) })
       }: Int
     }""")

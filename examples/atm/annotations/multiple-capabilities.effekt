@@ -14,7 +14,7 @@ def main(): Bool = {
   };
   try {
     try {
-      val local = both(outer)(inner)[step(inner)];
+      val local = both(outer)(inner)[ev(inner)];
       local()
     } with inner: Int / (Int => Bool) {
       def bump(): Int / (Int / (Int => Bool) => Int / (Int => Bool)) = {

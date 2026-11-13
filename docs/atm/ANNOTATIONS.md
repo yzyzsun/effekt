@@ -77,8 +77,8 @@ Arguments need no kind prefix: the next quantified parameter determines how
 each argument is checked. Both grouped and chained brackets are accepted:
 
 ```effekt
-callback[inner, 1, step(inner), Int / (Int => [])]()
-callback[inner][1][step(inner)][Int / (Int => [])]()
+callback[inner, 1, ev(inner), Int / (Int => [])]()
+callback[inner][1][ev(inner)][Int / (Int => [])]()
 ```
 
 These instantiate a `Reg`, a `Dist`, the corresponding `Ev`, and `ATC(1)` in
@@ -127,13 +127,28 @@ arguments are selected by their quantified parameters in the same way.
 The evidence's source must be the current region and its target must be the
 receiver's region. The ATC's depth must equal the evidence distance. The checker
 plugs the operation's initial and final answers into that context and checks the
-result against any inherited answer. An explicit ATC also permits synthesis
-without an inherited answer. If an annotation is omitted, its existing
-reconstruction procedure is used; symbolic-depth ATC inference remains partial.
+result against any inherited answer. These are the current `A_DoAnn` and
+`A_DoAnnF` rules, supported in both default and strict mode:
 
-Evidence consists of `refl` (or `refl(R)`), `step(h)`, a bound evidence variable,
-or composition `E + F`. `step(h)` uses the in-scope edge from handler `h` to its
-parent. Composition checks the intermediate region, not just the total depth.
+- Without an inherited answer, `A_DoAnn` synthesizes
+  `T' / (y. K[C1]) => K[C2]` from the instantiated operation signature.
+- With inherited answer `F`, `A_DoAnnF` checks `K[C2] <: F` and synthesizes
+  `T' / (y. K[C1]) => F`. The subtype check need not be equality.
+
+Both rules substitute the supplied type and value arguments before plugging
+the answers into `K`. Evidence and type arguments are elaborated; the ATC is
+retained as a checked Core certificate and erased during lowering. Symbolic
+evidence and ATC parameters are supported without choosing a numeric distance.
+For example, inside handler `h`, `def call() at [h] = { h.ask[refl; []]() }`
+can synthesize an effectful result without a result annotation in strict mode.
+If an annotation is omitted, its existing reconstruction procedure is used;
+symbolic-depth ATC inference remains partial, and an operation without an ATC
+still needs an inherited final answer.
+
+Evidence consists of `refl` (or `refl(R)`), `ev(h)`, a bound evidence variable,
+or composition `E + F`. `ev(h)` looks up the in-scope edge from handler `h` to
+its parent, at distance 1. This lookup was previously spelled `step(h)`.
+Composition checks the intermediate region, not just the total depth.
 `path(h)` requests ordinary evidence reconstruction from the current region to
 `h`; it retains any residual obligations. A distance numeral alone is never
 evidence for crossing a handler.
@@ -157,7 +172,7 @@ The resulting ordinary source arrow has no caller binder. Pre-parameter
 for the `A_Abs` freshness condition and the updated Fig. 1.
 
 Lexical aliases use `region R = h;`, `distance D = 1;`,
-`evidence E = step(inner);`, `atc K = Int / (Int => []);`, and `cty C = Int;`.
+`evidence E = ev(inner);`, `atc K = Int / (Int => []);`, and `cty C = Int;`.
 Aliases are resolved at their definition and preserve generative region identities.
 
 ## Execution and validation

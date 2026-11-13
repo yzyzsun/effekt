@@ -21,7 +21,7 @@ def main(): Int = {
   val run = try {
     val y = h.read[refl; []][pure]()
     try {
-      f(h)[inner][1][Int / (ClosedAnswer => [])][step(inner)][pure]()
+      f(h)[inner][1][Int / (ClosedAnswer => [])][ev(inner)][pure]()
       y
     } with inner {
       def unused(): Unit / (Int / (ClosedAnswer => OpenAnswer) => Int / (ClosedAnswer => OpenAnswer)) = resume(())

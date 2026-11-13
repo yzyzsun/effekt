@@ -47,7 +47,7 @@ accepted in strict mode as well.
 | ATC argument at a call of such a function | [call-context-argument](boundary/call-context-argument.effekt) | `Function expects 1 explicit ATC arguments` | same as above | The ATC at each call, e.g. `helper[Int / (Int => [])]()` |
 | ATC of an operation inside a recursive helper | [recursive-helper](boundary/recursive-helper.effekt) | `ATC inference requires a concrete evidence distance` | [recursive-helper-annotated](boundary/recursive-helper-annotated.effekt) | The region, `at [h]` |
 | ATC of an operation on a capability parameter | [capability-parameter](boundary/capability-parameter.effekt) | `ATC inference requires a concrete evidence distance` | [capability-parameter-annotated](boundary/capability-parameter-annotated.effekt) | The region, `at [c]` |
-| ATC of an operation where no answer type is inherited | [missing-inherited-answer](boundary/missing-inherited-answer.effekt) | `needs an inherited final answer type` | [missing-inherited-answer-annotated](boundary/missing-inherited-answer-annotated.effekt) | The function's result type |
+| ATC of an operation where no answer type is inherited | [missing-inherited-answer](boundary/missing-inherited-answer.effekt) | `needs an inherited final answer type` | [missing-inherited-answer-annotated](boundary/missing-inherited-answer-annotated.effekt) | The function's result type, or an explicit invocation ATC as described below |
 | Evidence that must pass through a function body | [region-annotation-in-function](boundary/region-annotation-in-function.effekt) | `required region … cannot discharge` | [region-annotation-in-function-annotated](boundary/region-annotation-in-function-annotated.effekt) | Less: drop the region annotation so the function gets its minimum region |
 | A common type for branches returning functions at different regions | [branch-function-regions](boundary/branch-function-regions.effekt) | `Guarded join is undefined` | [branch-function-regions-annotated](boundary/branch-function-regions-annotated.effekt) | An eta-expansion of one function at the other's region |
 | Answer type of a handler that changes the answer | [handler-answer](boundary/handler-answer.effekt) | `operation requires answer Bool / pure, found Int / pure` | [handler-answer-annotated](boundary/handler-answer-annotated.effekt) | The handler's answer type, `h: Bool` |
@@ -59,6 +59,13 @@ a fresh region whose distance to an enclosing handler is not a number. The ATC
 is defined only for a concrete distance. The two ways out are to state the
 function's region (`at [h]`), which makes the distance 0, or to abstract over
 the ATC and supply it at each call.
+
+For the missing-inherited-answer example, an alternative repair is
+`def helper() at [h] = { h.ask[refl; []]() }`. Strict mode accepts this by
+`A_DoAnn`: the supplied context determines both answers without an inherited
+final answer. When an answer is inherited, `A_DoAnnF` additionally checks that
+the contextual final answer is its subtype. `AtmStrictTests` covers both rules,
+including symbolic contexts, nested handlers and invalid annotations.
 
 Two further programs of this kind predate this directory:
 [callback-under-handler](../callback-under-handler.effekt) and

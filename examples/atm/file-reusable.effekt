@@ -13,7 +13,7 @@ def main(): Int = {
         ((Unit)[K: ATC(dist(path(f)))] => Int / (K[Int] => K[C]) at {f}))
     ) at [R]: C {
       try {
-        body(h)[step(h)][[]]()
+        body(h)[ev(h)][[]]()
       } with h: File {
         def read() = resume(c)
         def close() = resume(())

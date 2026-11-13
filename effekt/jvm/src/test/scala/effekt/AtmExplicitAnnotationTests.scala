@@ -29,7 +29,7 @@ class AtmExplicitAnnotationTests extends munit.FunSuite {
   private def layers(n: Int, hole: String): String =
     (0 until n).foldLeft(hole)((rest, _) => s"Int / (Int => $rest)")
   private def source(depth: Int): String = {
-    val evidence = if depth == 0 then "refl" else (1 to depth).reverse.map(i => s"step(h$i)").mkString(" + ")
+    val evidence = if depth == 0 then "refl" else (1 to depth).reverse.map(i => s"ev(h$i)").mkString(" + ")
     val call = s"callback[region ${if depth == 0 then "outer" else s"h$depth"}][distance $depth][evidence $evidence][atc ${layers(depth, "[]")}]()"
     val body = (1 to depth).reverse.foldLeft(call) { (body, i) =>
       val answer = layers(i, "Bool")
@@ -56,16 +56,16 @@ class AtmExplicitAnnotationTests extends munit.FunSuite {
     val s = Files.readString(Path.of("examples/atm/annotations/multiple-capabilities.effekt"))
     val old = Parser.parse(Files.readString(Path.of("examples/atm/multiple-capabilities.effekt"))).toOption.get
     run(s, AtmReference.run(old))
-    rejected(s.replace("[step(inner)]", "[refl]"), "Annotation kind mismatch")
+    rejected(s.replace("[ev(inner)]", "[refl]"), "Annotation kind mismatch")
   }
   test("the unannotated symbolic-distance case remains an honest inference failure") {
     rejected(Files.readString(Path.of("examples/atm/infer/polymorphic-outer-call.effekt")), "ATC inference requires a concrete")
   }
   test("explicit annotations work with lexical aliases and equivalent distance sums") {
     val s = source(1).replace("callback[region h1]", """region R = h1; distance D = 0 + 1;
-      evidence E = step(h1); atc K = Int / (Int => []);
+      evidence E = ev(h1); atc K = Int / (Int => []);
       callback[region R]""")
-      .replace("[distance 1][evidence step(h1)][atc Int / (Int => [])]", "[distance D][evidence E][atc K]")
+      .replace("[distance 1][evidence ev(h1)][atc Int / (Int => [])]", "[distance D][evidence E][atc K]")
     run(s, "true")
   }
   test("abstract contexts and evidence compose with additive depths") {
@@ -75,9 +75,9 @@ class AtmExplicitAnnotationTests extends munit.FunSuite {
         outer.ask[E + F; K[J]]()
       }
     };"""
-    val oldCall = "callback[region h2][distance 2][evidence step(h2) + step(h1)][atc Int / (Int => Int / (Int => []))]()"
+    val oldCall = "callback[region h2][distance 2][evidence ev(h2) + ev(h1)][atc Int / (Int => Int / (Int => []))]()"
     val newCall = """callback[region h2][region h1][distance 1][distance 1]
-      [evidence step(h2)][evidence step(h1)][atc Int / (Int => [])][atc Int / (Int => [])]()"""
+      [evidence ev(h2)][evidence ev(h1)][atc Int / (Int => [])][atc Int / (Int => [])]()"""
     run(source(2).replace(callback, nested).replace(oldCall, newCall), "true")
   }
   test("declared kind telescopes alpha-rename dependencies during subsumption") {
@@ -149,11 +149,11 @@ class AtmExplicitAnnotationTests extends munit.FunSuite {
     rejected(source(1).replace("[atc Int / (Int => [])]", "[atc []]"), "Annotation kind mismatch")
   }
   test("evidence arguments cannot invent a delimiter crossing") {
-    rejected(source(1).replace("[evidence step(h1)]", "[evidence refl]"), "Annotation kind mismatch")
+    rejected(source(1).replace("[evidence ev(h1)]", "[evidence refl]"), "Annotation kind mismatch")
     rejected(source(1).replace("[distance 1]", "[distance 0]"), "Annotation kind mismatch")
   }
   test("evidence composition requires matching intermediate regions") {
-    rejected(source(1).replace("[evidence step(h1)]", "[evidence step(outer) + step(h1)]"), "Ill-composed region evidence")
+    rejected(source(1).replace("[evidence ev(h1)]", "[evidence ev(outer) + ev(h1)]"), "Ill-composed region evidence")
   }
   test("unknown annotations and forward kind dependencies are rejected") {
     rejected(source(1).replace("outer.ask[E; K]", "outer.ask[E; Missing]"), "Unknown or non-ATC")
@@ -241,10 +241,10 @@ class AtmExplicitAnnotationTests extends munit.FunSuite {
   }
 
   test("positional evidence and contexts still require valid endpoints and matching depths") {
-    rejected(positionalCall("[step(h); []]"), "incorrect region endpoints")
+    rejected(positionalCall("[ev(h); []]"), "incorrect region endpoints")
     rejected(positionalCall("[refl; Int / (Int => [])]"), "ATC depth differs")
-    rejected(positionalCall("[step(h) + step(h); []]"), "Ill-composed region evidence")
-    rejected(positionalCall("[step(h)]"), "incorrect region endpoints")
+    rejected(positionalCall("[ev(h) + ev(h); []]"), "Ill-composed region evidence")
+    rejected(positionalCall("[ev(h)]"), "incorrect region endpoints")
     rejected(positionalCall("[Int / (Int => [])]"), "ATC depth differs")
   }
 
@@ -274,14 +274,14 @@ class AtmExplicitAnnotationTests extends munit.FunSuite {
 
   test("single concrete contexts and evidence execute across nested handlers") {
     for (depth, annotation) <- List(
-      1 -> "[step(h1)]",
+      1 -> "[ev(h1)]",
       1 -> "[layer(Int, Int, [])]",
-      2 -> "[step(h2) + step(h1)]",
+      2 -> "[ev(h2) + ev(h1)]",
       2 -> "[Int / (Int => Int / (Int => []))]") do {
-      val oldCall = s"callback[region ${if depth == 0 then "outer" else s"h$depth"}][distance $depth][evidence ${if depth == 1 then "step(h1)" else "step(h2) + step(h1)"}][atc ${layers(depth, "[]")}]()"
+      val oldCall = s"callback[region ${if depth == 0 then "outer" else s"h$depth"}][distance $depth][evidence ${if depth == 1 then "ev(h1)" else "ev(h2) + ev(h1)"}][atc ${layers(depth, "[]")}]()"
       run(source(depth).replace(callback, "").replace(oldCall, s"outer.ask$annotation()"), "true")
     }
-    val oldCall = "callback[region h2][distance 2][evidence step(h2) + step(h1)][atc Int / (Int => Int / (Int => []))]()"
+    val oldCall = "callback[region h2][distance 2][evidence ev(h2) + ev(h1)][atc Int / (Int => Int / (Int => []))]()"
     run(source(2).replace(callback, "").replace(oldCall,
       "atc K = Int / (Int => []); atc J = Int / (Int => []); outer.ask[K[J]]()"), "true")
   }

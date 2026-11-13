@@ -114,7 +114,7 @@ quantifies `R: Reg` and `C: Cty` before its ordinary descriptor parameter:
 ```effekt
 val file = fun [R: Reg, C: Cty] (c: Int) {
   fun (body: /* callback contract mentioning R */) at [R]: C {
-    // Install h, then invoke body(h)[step(h)][[]]().
+    // Install h, then invoke body(h)[ev(h)][[]]().
   }
 };
 file[top][Int](7)(/* outer callback */)

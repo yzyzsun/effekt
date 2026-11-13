@@ -968,7 +968,8 @@ Four checker changes, described in [FIDELITY.md](FIDELITY.md):
 - `Type.Continuation` is removed; `A_HOp` binds the continuation at
   `Type.FixedFunction`, and the one-way coercion between the two is gone.
 - `Checker.checkStrict` / `--check-strict` rejects every inserted annotation and
-  an explicit-ATC operation without an inherited answer.
+  initially rejected an explicit-ATC operation without an inherited answer.
+  That latter restriction is superseded by the `A_DoAnn`/`A_DoAnnF` update below.
 
 Regressions changed because they asserted the previous behavior:
 `AtmAbstractionTests` (a nested annotated lambda is now accepted at `top`),
@@ -1163,3 +1164,59 @@ checked. `git diff --check` passed in both repositories.
 Logs: `/tmp/atm-annotation-order-full.log`,
 `/tmp/atm-annotation-order-examples.json`, and
 `/tmp/atm-context-polymorphic-repair/syntax-*-build.log`.
+
+## 2026-11-13: strict annotated operation rules (`A_DoAnn`, `A_DoAnnF`)
+
+Removed the stale strict-mode requirement that every operation inherit a final
+answer. With explicit evidence and an ATC, `A_DoAnn` synthesizes both contextual
+answers under empty inherited mode. `A_DoAnnF` uses the existing final-answer
+subtyping check and widens only the final answer to the inherited one. Both
+retain evidence endpoint and ATC-depth checks, operation type/value argument
+substitution, and the unadapted operation contract for Core validation. Calls
+without an ATC still need an inherited answer for ATC reconstruction.
+
+Replaced the old rejection test with acceptance and execution regressions in
+`AtmStrictTests`. Coverage includes concrete and symbolic contexts, a nested
+handler edge, dependent operation arguments, polymorphic answer types, a proper
+final-answer subtype, and rejection of wrong endpoints, depths, arguments and
+incompatible final answers. The execution regressions validate in Core and run
+in the reference interpreter and Direct Lifted/Chez with optimization off/on;
+the subtyping-specific test inspects the checked and unadapted answer types
+and executes without optimization.
+The annotation reference, fidelity report, rule-to-code map and inference
+boundary guide now describe the current rules.
+
+Before the checker change, **4 of the 18 strict tests failed**, all at the stale
+guard; the `A_DoAnnF` regressions already passed. After the change, **18 of 18
+strict tests passed**. Logs: `/tmp/atm-doann-before.log` and
+`/tmp/atm-doann-strict.log`.
+
+Full validation:
+
+```sh
+sbt -batch 'effektJVM/testOnly effekt.Atm*Tests' \
+  'effektJVM/testOnly effekt.core.* effekt.lifted.mono.MonomorphizationTests' \
+  'effektJS/compile'
+```
+
+**573 ATM tests passed**, **35 Core/monomorphization tests passed**, and
+**Scala.js compilation passed**. `git diff --check` passed. Full log:
+`/tmp/atm-doann-validation.log`.
+
+## 2026-11-13: rename handler-edge lookup to `ev(r)`
+
+The evidence lookup formerly spelled `step(r)` is now `ev(r)` in the parser
+and `Proof.Ev` in the annotation AST. It still retrieves the in-scope handler
+edge from `r` to its parent at distance 1, with the same scope, endpoint and
+composition checks. The old evidence spelling is no longer parsed.
+
+Updated the maintained examples, annotation and caller-region documentation,
+and existing parser, annotation, file, polymorphic-operation and strict-mode
+tests. The coverage hash for `section5-1-modular-nested.effekt` was refreshed;
+`paper_coverage.py` validated all 81 benchmark entries and 7 example groups.
+
+Validation: **144 tests passed** across `AtmParserTests`,
+`AtmExplicitAnnotationTests`, `AtmExplicitFileTests`,
+`AtmPolymorphicOperationTests`, `AtmPolymorphicSyntaxTests`, and `AtmStrictTests`.
+**Scala.js compilation passed**, as did `git diff --check`. Log:
+`/tmp/atm-ev-rename-validation.log`.
